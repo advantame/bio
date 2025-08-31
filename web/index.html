@@ -1,0 +1,34 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>PP-oscillation (Rust + WASM + Canvas)</title>
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; margin:16px; }
+  .wrap { display:grid; grid-template-columns: 1fr 340px; gap:16px; }
+  canvas { border:1px solid #ddd; border-radius:8px; width:100%; height:420px; }
+  .row { display:grid; grid-template-columns: 110px 1fr 90px; gap:8px; margin:6px 0; align-items:center; }
+  .badge { display:inline-flex; align-items:center; gap:8px; padding:4px 10px; background:#e2e8f0; border:1px solid #cbd5e1; border-radius:999px; margin-bottom:8px; font-size:.9rem; color:#0f172a; }
+  .dot { width:8px; height:8px; border-radius:50%; background:#0f172a; animation:pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%{opacity:.2} 50%{opacity:1} 100%{opacity:.2} }
+  #status { margin-top:8px; color:#555 }
+</style>
+
+<div class="wrap">
+  <div>
+    <div id="busy" class="badge" style="display:none"><div class="dot"></div><span>Rendering…</span></div>
+    <canvas id="cv" width="1100" height="420"></canvas>
+    <div id="status"></div>
+    <p style="color:#666;font-size:.9rem">
+      τ = t/2.6（横軸は 0..2600/2.6）。Prey = 400 - n*Kmp、Predator = p*Kmp（Kmp=34）。
+    </p>
+  </div>
+  <div>
+    <div class="row"><label>β</label><input id="beta" type="range" min="0" max="0.5" step="0.001" value="0.087"><input id="beta_n" type="number" step="0.001" value="0.087"></div>
+    <div class="row"><label>Δ</label><input id="delta" type="range" min="0" max="1" step="0.001" value="0.39"><input id="delta_n" type="number" step="0.001" value="0.39"></div>
+    <div class="row"><label>γ</label><input id="lam"   type="range" min="0" max="10" step="0.01" value="4.5"><input id="lam_n" type="number" step="0.01" value="4.5"></div>
+    <div class="row"><label>N₀</label><input id="N"     type="range" min="0" max="400" step="0.1" value="10"><input id="N_n" type="number" step="0.1" value="10"></div>
+    <div class="row"><label>P₀</label><input id="P"     type="range" min="0" max="400" step="0.1" value="10"><input id="P_n" type="number" step="0.1" value="10"></div>
+    <div class="row"><label>G</label><input id="G"      type="range" min="0" max="400" step="0.5" value="160"><input id="G_n" type="number" step="0.5" value="160"></div>
+  </div>
+</div>
+
+<script type="module" src="./app.js"></script>

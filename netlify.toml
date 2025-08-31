@@ -1,0 +1,13 @@
+[build]
+  command = "bash ./netlify-build.sh"
+  publish = "dist"
+
+[build.environment]
+  RUSTUP_TOOLCHAIN = "stable"
+
+# 念のため .wasm の MIME を明示（Netlifyは通常自動判別しますが保険）
+[[headers]]
+  for = "/pkg/*.wasm"
+  [headers.values]
+    Content-Type = "application/wasm"
+    Access-Control-Allow-Origin = "*"
