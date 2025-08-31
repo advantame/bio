@@ -63,6 +63,7 @@ resetBtn.addEventListener("click", () => {
 });
 
 // 必要ならDPR対応の内部解像度調整も可能（コメントアウト解除）
+/*
 function resizeCanvas() {
   const rect = cv.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
@@ -71,6 +72,7 @@ function resizeCanvas() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   requestUpdate();
 }
+*/
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
