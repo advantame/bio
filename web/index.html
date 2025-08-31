@@ -5,12 +5,11 @@
   :root { --line:#e5e7eb; --muted:#666; }
   body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; margin:16px; background:#fafafa; }
   .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; box-shadow:0 1px 2px rgba(0,0,0,.03); }
-
-  /* 縦並びに変更（グラフ → スライダー） */
   .wrap { display:flex; flex-direction:column; gap:16px; }
 
-  canvas { background:#ffffff; border:1px solid var(--line); border-radius:10px; width:100%; height:420px; /* 表示サイズ */
-           /* 内部解像度は app.js で設定してもOK。簡易版として固定でもOK（デフォは1100x420） */ }
+  /* 表示サイズはCSS、内部解像度は app.js で調整も可能 */
+  canvas { background:#ffffff; border:1px solid var(--line); border-radius:10px; width:100%; height:480px; }
+
   .legend { display:flex; gap:16px; align-items:center; margin-top:8px; color:#0f172a; }
   .swatch { display:inline-block; width:12px; height:12px; border-radius:2px; margin-right:6px; }
   .prey { background:#f28c28; }
@@ -41,7 +40,8 @@
   <!-- グラフカード -->
   <div class="card">
     <div id="busy" class="badge"><div class="dot"></div><span>Rendering…</span></div>
-    <canvas id="cv" width="1100" height="420"></canvas>
+    <!-- 内部解像度は app.js で上書き可能。ここは初期値 -->
+    <canvas id="cv" width="1200" height="520"></canvas>
 
     <div class="legend">
       <span><span class="swatch prey"></span>Prey (N)</span>
@@ -51,10 +51,10 @@
     <div id="status"></div>
 
     <p class="note">
-      横軸は <code>τ = t/2.6</code>（t=0..2600）。縦軸は
-      <code>Prey = 400 - n \* Kmp</code>、<code>Predator = p \* Kmp</code>（<code>Kmp=34</code>）。
-      初期値は <code>N₀=10</code>, <code>P₀=10</code>, <code>G=160</code>、
-      パラメータは <code>β=0.087</code>, <code>Δ=0.39</code>, <code>γ=4.5</code>。
+      横軸は <code>τ = t/2.6</code>（t=0..2600, 表示ラベルは minutes）。縦軸は
+      <code>Prey = 400 - n × Kmp</code>、<code>Predator = p × Kmp</code>（<code>Kmp=34</code>）。
+      既定値：<code>N₀=10</code>, <code>P₀=10</code>, <code>G=160</code>,
+      <code>β=0.087</code>, <code>Δ=0.39</code>, <code>γ=4.5</code>。
     </p>
   </div>
 
@@ -95,7 +95,6 @@
 
     <div class="buttons">
       <button id="resetBtn">Reset</button>
-      <!-- 必要なら Save PNG も追加可：<button id="saveBtn">Save PNG</button> -->
     </div>
   </div>
 </div>
