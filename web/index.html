@@ -2,32 +2,101 @@
 <meta charset="utf-8">
 <title>PP-oscillation (Rust + WASM + Canvas)</title>
 <style>
-  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; margin:16px; }
-  .wrap { display:grid; grid-template-columns: 1fr 340px; gap:16px; }
-  canvas { border:1px solid #ddd; border-radius:8px; width:100%; height:420px; }
-  .row { display:grid; grid-template-columns: 110px 1fr 90px; gap:8px; margin:6px 0; align-items:center; }
-  .badge { display:inline-flex; align-items:center; gap:8px; padding:4px 10px; background:#e2e8f0; border:1px solid #cbd5e1; border-radius:999px; margin-bottom:8px; font-size:.9rem; color:#0f172a; }
+  :root { --line:#e5e7eb; --muted:#666; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; margin:16px; background:#fafafa; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; box-shadow:0 1px 2px rgba(0,0,0,.03); }
+
+  /* 縦並びに変更（グラフ → スライダー） */
+  .wrap { display:flex; flex-direction:column; gap:16px; }
+
+  canvas { background:#ffffff; border:1px solid var(--line); border-radius:10px; width:100%; height:420px; /* 表示サイズ */
+           /* 内部解像度は app.js で設定してもOK。簡易版として固定でもOK（デフォは1100x420） */ }
+  .legend { display:flex; gap:16px; align-items:center; margin-top:8px; color:#0f172a; }
+  .swatch { display:inline-block; width:12px; height:12px; border-radius:2px; margin-right:6px; }
+  .prey { background:#f28c28; }
+  .pred { background:#2c7a7b; }
+
+  .note { color:var(--muted); font-size:.92rem; line-height:1.6; margin-top:8px; }
+  #status { margin-top:6px; color:#555; font-size:.9rem; }
+
+  .controls.card { padding:16px; }
+  .rows { display:grid; grid-template-columns: 130px 1fr 100px; gap:10px 10px; align-items:center; }
+  .row { display:contents; }
+  input[type="range"] { width:100%; }
+  input[type="number"] { width:100%; box-sizing:border-box; }
+  .buttons { display:flex; gap:10px; margin-top:12px; }
+  button { padding:8px 12px; border-radius:8px; border:1px solid #d1d5db; background:#f8f8f8; cursor:pointer; }
+  button:hover { background:#f0f0f0; }
+
+  .badge { display:none; align-items:center; gap:8px; padding:4px 10px; background:#e2e8f0; border:1px solid #cbd5e1; border-radius:999px; margin-bottom:8px; font-size:.9rem; color:#0f172a; width:fit-content; }
   .dot { width:8px; height:8px; border-radius:50%; background:#0f172a; animation:pulse 1s ease-in-out infinite; }
   @keyframes pulse { 0%{opacity:.2} 50%{opacity:1} 100%{opacity:.2} }
-  #status { margin-top:8px; color:#555 }
+
+  @media (max-width: 720px) {
+    .rows { grid-template-columns: 100px 1fr 90px; }
+  }
 </style>
 
 <div class="wrap">
-  <div>
-    <div id="busy" class="badge" style="display:none"><div class="dot"></div><span>Rendering…</span></div>
+  <!-- グラフカード -->
+  <div class="card">
+    <div id="busy" class="badge"><div class="dot"></div><span>Rendering…</span></div>
     <canvas id="cv" width="1100" height="420"></canvas>
+
+    <div class="legend">
+      <span><span class="swatch prey"></span>Prey (N)</span>
+      <span><span class="swatch pred"></span>Predator (P)</span>
+    </div>
+
     <div id="status"></div>
-    <p style="color:#666;font-size:.9rem">
-      τ = t/2.6（横軸は 0..2600/2.6）。Prey = 400 - n*Kmp、Predator = p*Kmp（Kmp=34）。
+
+    <p class="note">
+      横軸は <code>τ = t/2.6</code>（t=0..2600）。縦軸は
+      <code>Prey = 400 - n \* Kmp</code>、<code>Predator = p \* Kmp</code>（<code>Kmp=34</code>）。
+      初期値は <code>N₀=10</code>, <code>P₀=10</code>, <code>G=160</code>、
+      パラメータは <code>β=0.087</code>, <code>Δ=0.39</code>, <code>γ=4.5</code>。
     </p>
   </div>
-  <div>
-    <div class="row"><label>β</label><input id="beta" type="range" min="0" max="0.5" step="0.001" value="0.087"><input id="beta_n" type="number" step="0.001" value="0.087"></div>
-    <div class="row"><label>Δ</label><input id="delta" type="range" min="0" max="1" step="0.001" value="0.39"><input id="delta_n" type="number" step="0.001" value="0.39"></div>
-    <div class="row"><label>γ</label><input id="lam"   type="range" min="0" max="10" step="0.01" value="4.5"><input id="lam_n" type="number" step="0.01" value="4.5"></div>
-    <div class="row"><label>N₀</label><input id="N"     type="range" min="0" max="400" step="0.1" value="10"><input id="N_n" type="number" step="0.1" value="10"></div>
-    <div class="row"><label>P₀</label><input id="P"     type="range" min="0" max="400" step="0.1" value="10"><input id="P_n" type="number" step="0.1" value="10"></div>
-    <div class="row"><label>G</label><input id="G"      type="range" min="0" max="400" step="0.5" value="160"><input id="G_n" type="number" step="0.5" value="160"></div>
+
+  <!-- スライダー（下配置） -->
+  <div class="controls card">
+    <div class="rows">
+      <div class="row">
+        <label for="beta">β (beta)</label>
+        <input id="beta" type="range" min="0" max="0.5" step="0.001" value="0.087">
+        <input id="beta_n" type="number" step="0.001" value="0.087">
+      </div>
+      <div class="row">
+        <label for="delta">Δ (delta)</label>
+        <input id="delta" type="range" min="0" max="1" step="0.001" value="0.39">
+        <input id="delta_n" type="number" step="0.001" value="0.39">
+      </div>
+      <div class="row">
+        <label for="lam">γ (lambda)</label>
+        <input id="lam" type="range" min="0" max="10" step="0.01" value="4.5">
+        <input id="lam_n" type="number" step="0.01" value="4.5">
+      </div>
+      <div class="row">
+        <label for="N">N₀ [nM]</label>
+        <input id="N" type="range" min="0" max="400" step="0.1" value="10">
+        <input id="N_n" type="number" step="0.1" value="10">
+      </div>
+      <div class="row">
+        <label for="P">P₀ [nM]</label>
+        <input id="P" type="range" min="0" max="400" step="0.1" value="10">
+        <input id="P_n" type="number" step="0.1" value="10">
+      </div>
+      <div class="row">
+        <label for="G">G</label>
+        <input id="G" type="range" min="0" max="400" step="0.5" value="160">
+        <input id="G_n" type="number" step="0.5" value="160">
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button id="resetBtn">Reset</button>
+      <!-- 必要なら Save PNG も追加可：<button id="saveBtn">Save PNG</button> -->
+    </div>
   </div>
 </div>
 
