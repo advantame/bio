@@ -72,9 +72,9 @@ function resizeCanvas() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   requestUpdate();
 }
-*/
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
+*/
 
 let needUpdate = true;
 let wasmReady = false;
