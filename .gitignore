@@ -1,0 +1,13 @@
+# Build artifacts
+/crate/target/
+
+# Wasm-pack output (rebuilt on CI/Netlify)
+/web/pkg/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
