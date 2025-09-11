@@ -15,9 +15,22 @@
   .buttons { display:flex; gap:10px; margin-top:12px; }
   button { padding:8px 12px; border-radius:8px; border:1px solid #d1d5db; background:#f8f8f8; cursor:pointer; }
   button:hover { background:#f0f0f0; }
+  .nav { display:flex; gap:12px; flex-wrap:wrap; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:#fff; }
+  .nav a { color:#2563eb; text-decoration:none; }
+  .nav a:hover { text-decoration:underline; }
 </style>
 
 <div class="wrap">
+  <div class="nav">
+    <a href="../">Home</a>
+    <span>·</span>
+    <a href="../simulator/">Simulator</a>
+    <span>·</span>
+    <a href="../bifurcation/">Bifurcation</a>
+    <span>·</span>
+    <a href="../heatmap/">Heatmap</a>
+  </div>
+
   <div class="card">
     <h2 style="margin:4px 0 10px;">分岐図ジェネレータ</h2>
     <div style="display:flex; gap:16px; flex-wrap:wrap;">
