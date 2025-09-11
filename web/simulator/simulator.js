@@ -211,7 +211,10 @@ async function animate(){
     const t0 = performance.now();
     const params = getVals();
     const { N, P } = runSimulationPhysical(params);
-    drawTimeSeries(N, P);
+    // Display mapping: Prey (plotted) = 400 - N [nM], Predator = P [nM]
+    const Prey = N.map(v => 400 - v);
+    drawTimeSeries(Prey, P);
+    // Phase portrait uses raw N vs P to show state evolution
     drawPhase(N, P);
     const t1 = performance.now();
     status.textContent = `calc+draw: ${(t1 - t0).toFixed(1)} ms | points: ${N.length}`;
