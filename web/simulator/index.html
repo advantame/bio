@@ -132,7 +132,28 @@
       <button id="resetBtn">Reset</button>
     </div>
   </div>
+
+  <!-- 説明セクション -->
+  <div class="card" style="margin-top:8px;">
+    <h3 style="margin:0 0 8px;">ページ1: インタラクティブ・シミュレータ</h3>
+    <h4 style="margin:0 0 6px;">このツールについて</h4>
+    <p>
+      このシミュレータは、論文で報告された<strong>捕食者-被食者モデル</strong>に基づき、DNA鎖の濃度が周期的に変化する「DNA発振器」の基本挙動をリアルタイムで探るためのツールです。スライダーを動かすことで、酵素濃度やDNA濃度といった<strong>実験条件に直接対応する物理パラメータ</strong>を変化させ、濃度振動がどのように変わるかを視覚的に理解できます。
+    </p>
+    <p>
+      グラフには、時間経過に伴う各DNA鎖（被食者N、捕食者P）の濃度変化と、被食者(N)と捕食者(P)の相関関係を示す位相図が表示されます。位相図が安定した円形の軌道（リミットサイクル）を描くとき、系は安定した振動状態にあることを意味します。
+    </p>
+    <p>
+      このシミュレーションは、以下の<strong>連立常微分方程式</strong>に基づいています。
+    </p>
+    <!-- 数式は画像で埋め込み（画像は後で提供） -->
+    <div style="display:flex; justify-content:center; margin:12px 0;">
+      <img src="./eq-simulator.png" alt="連立常微分方程式 (dN/dt, dP/dt)" style="max-width:100%; height:auto;">
+    </div>
+    <p>
+      <em>文脈:</em> このツールは、特定の実験条件下でどのような振動が生まれるかを直感的に把握し、基本的なパラメータ感受性を理解するために作成されました。特に、あなたの研究テーマである「DNAへのアミノ酸修飾」が、どのパラメータ(<code>k₁</code>など)に影響を与え、振動をどう変えるかの当たりをつける第一歩として役立ちます。
+    </p>
+  </div>
 </div>
 
 <script type="module" src="./simulator.js"></script>
-

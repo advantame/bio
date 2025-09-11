@@ -1,0 +1,33 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>分岐図ジェネレータ — PP-oscillation</title>
+<style>
+  :root { --line:#e5e7eb; --muted:#666; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; margin:16px; background:#fafafa; }
+  .wrap { display:flex; flex-direction:column; gap:16px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; box-shadow:0 1px 2px rgba(0,0,0,.03); }
+  .note { color:var(--muted); font-size:.92rem; line-height:1.6; margin-top:8px; }
+</style>
+
+<div class="wrap">
+  <div class="card">
+    <h2 style="margin:4px 0 10px;">分岐図ジェネレータ</h2>
+    <p class="note">このページはこれから実装を進めます（パラメータ掃引と分岐図の描画）。</p>
+  </div>
+
+  <!-- 説明セクション -->
+  <div class="card" style="margin-top:8px;">
+    <h3 style="margin:0 0 8px;">ページ2: 分岐図ジェネレータ</h3>
+    <h4 style="margin:0 0 6px;">このツールについて</h4>
+    <p>
+      このツールは、DNA発振器の挙動が<strong>質的に変化する「転移点」</strong>を特定するための高度な分析ツールです。ある特定のパラメータ（例：鋳型DNA濃度 <code>G</code>）を少しずつ変化させたときに、系の長期的な振る舞い（安定な状態か、振動状態か）がどのように変わるかを<strong>分岐図</strong>として可視化します。
+    </p>
+    <p>
+      グラフの横軸はあなたが選んだパラメータ（例：<code>G</code>）、縦軸は長時間経過後の安定した状態における捕食者(P)の濃度を示します。線が一本の場合は系が安定な定常状態にあることを、線が二本に分かれている（分岐している）場合は、系が周期的に振動していること（最大値と最小値）を示します。
+    </p>
+    <p>
+      <em>文脈:</em> 実際の化学実験では、試薬の濃度をわずかに変えるだけで、振動が突然始まったり止まったりする現象が起こります。このツールは、その「振動が生まれるパラメータの範囲」を<strong>理論的に予測する</strong>ために不可欠です。例えば、「アミノ酸修飾によって反応効率<code>k₁</code>が低下すると、振動が始まるために必要な<code>G</code>濃度は高くなるはずだ」といった、より鋭い仮説を検証するために使用します。これは論文の補足情報(SI)でも、系の安定性を議論するために多用されている分析手法です。
+    </p>
+  </div>
+</div>
+

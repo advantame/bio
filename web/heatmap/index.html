@@ -1,0 +1,33 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>2Dパラメータ・ヒートマップ — PP-oscillation</title>
+<style>
+  :root { --line:#e5e7eb; --muted:#666; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; margin:16px; background:#fafafa; }
+  .wrap { display:flex; flex-direction:column; gap:16px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; box-shadow:0 1px 2px rgba(0,0,0,.03); }
+  .note { color:var(--muted); font-size:.92rem; line-height:1.6; margin-top:8px; }
+</style>
+
+<div class="wrap">
+  <div class="card">
+    <h2 style="margin:4px 0 10px;">2Dパラメータ・ヒートマップ</h2>
+    <p class="note">このページはこれから実装を進めます（2Dグリッド探索とヒートマップ描画）。</p>
+  </div>
+
+  <!-- 説明セクション -->
+  <div class="card" style="margin-top:8px;">
+    <h3 style="margin:0 0 8px;">ページ3: 2Dパラメータ・ヒートマップ</h3>
+    <h4 style="margin:0 0 6px;">このツールについて</h4>
+    <p>
+      このツールは、2つの異なるパラメータを同時に変化させたときに、振動の<strong>周期（波長）や振幅</strong>といった特性がどのように変化するかを<strong>ヒートマップ</strong>として可視化する、最も高度な分析ツールです。
+    </p>
+    <p>
+      例えば、横軸に鋳型DNA濃度 <code>G</code>、縦軸にあなたの研究テーマである「アミノ酸修飾の効果 (<code>k₁</code>)」を設定します。すると、シミュレーションが各(G, k₁)の組み合わせにおける振動周期を計算し、その長さを色で表示した2次元マップを生成します。
+    </p>
+    <p>
+      <em>文脈:</em> あなたの最終目標は「DNAへのアミノ酸結合が振動の波長をどう変えるか」を明らかにすることです。このツールはその問いに最も直接的に答えるためのものです。このヒートマップを使えば、「アミノ酸修補飾効果(<code>k₁</code>の低下)は、<code>G</code>濃度が低い領域では周期をわずかに伸ばすだけだが、<code>G</code>濃度が高い領域では周期を劇的に変化させる」といった、<strong>パラメータ間の複雑な相互作用</strong>を明らかにすることができます。これにより、シミュレーションから「xxという条件下でyyという結果が得られるはずだ」という、実験的に検証可能な<strong>具体的な仮説</strong>を生み出すことが可能になります。
+    </p>
+  </div>
+</div>
+
