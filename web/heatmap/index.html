@@ -7,12 +7,90 @@
   .wrap { display:flex; flex-direction:column; gap:16px; }
   .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; box-shadow:0 1px 2px rgba(0,0,0,.03); }
   .note { color:var(--muted); font-size:.92rem; line-height:1.6; margin-top:8px; }
+  canvas { background:#fff; border:1px solid var(--line); border-radius:10px; width:100%; height:520px; }
+  .rows { display:grid; grid-template-columns: 160px 1fr 120px; gap:10px 10px; align-items:center; }
+  .row { display:contents; }
+  input[type="number"], select { width:100%; box-sizing:border-box; }
+  .buttons { display:flex; gap:10px; margin-top:12px; }
+  button { padding:8px 12px; border-radius:8px; border:1px solid #d1d5db; background:#f8f8f8; cursor:pointer; }
+  button:hover { background:#f0f0f0; }
 </style>
 
 <div class="wrap">
   <div class="card">
     <h2 style="margin:4px 0 10px;">2Dパラメータ・ヒートマップ</h2>
-    <p class="note">このページはこれから実装を進めます（2Dグリッド探索とヒートマップ描画）。</p>
+    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+      <div style="flex:2 1 520px; min-width:420px;">
+        <canvas id="cv" width="1200" height="560"></canvas>
+        <div id="status" class="note"></div>
+      </div>
+      <div class="card" style="flex:1 1 360px; min-width:320px;">
+        <div class="rows">
+          <div class="row">
+            <label for="xParam">Xパラメータ</label>
+            <select id="xParam">
+              <option value="G">G</option>
+              <option value="k1">k1</option>
+              <option value="mod_factor">mod_factor</option>
+              <option value="pol">pol</option>
+              <option value="rec">rec</option>
+              <option value="KmP">KmP</option>
+            </select>
+            <div></div>
+          </div>
+          <div class="row"><label for="xMin">X最小</label><input id="xMin" type="number" step="0.01" value="50"><div></div></div>
+          <div class="row"><label for="xMax">X最大</label><input id="xMax" type="number" step="0.01" value="300"><div></div></div>
+          <div class="row"><label for="xSteps">Xステップ</label><input id="xSteps" type="number" step="1" value="40"><div></div></div>
+
+          <div class="row">
+            <label for="yParam">Yパラメータ</label>
+            <select id="yParam">
+              <option value="k1">k1</option>
+              <option value="mod_factor">mod_factor</option>
+              <option value="G">G</option>
+              <option value="pol">pol</option>
+              <option value="rec">rec</option>
+              <option value="KmP">KmP</option>
+            </select>
+            <div></div>
+          </div>
+          <div class="row"><label for="yMin">Y最小</label><input id="yMin" type="number" step="0.01" value="0.2"><div></div></div>
+          <div class="row"><label for="yMax">Y最大</label><input id="yMax" type="number" step="0.01" value="1.5"><div></div></div>
+          <div class="row"><label for="ySteps">Yステップ</label><input id="ySteps" type="number" step="1" value="30"><div></div></div>
+
+          <div class="row">
+            <label for="metric">指標</label>
+            <select id="metric">
+              <option value="amplitude">振幅（Pのmax-min）</option>
+              <option value="period">周期（Pピーク間平均）</option>
+            </select>
+            <div></div>
+          </div>
+
+          <div class="row"><label for="t_end">t_end [min]</label><input id="t_end" type="number" step="100" value="2600"><div></div></div>
+          <div class="row"><label for="dt">dt [min]</label><input id="dt" type="number" step="0.1" value="1"><div></div></div>
+          <div class="row"><label for="tail">評価区間（末尾%）</label><input id="tail" type="number" step="1" value="30"><div></div></div>
+
+          <!-- ベースパラメータ -->
+          <div class="row"><label>pol</label><input id="pol" type="number" step="0.01" value="1"><div></div></div>
+          <div class="row"><label>rec</label><input id="rec" type="number" step="0.01" value="1"><div></div></div>
+          <div class="row"><label>G</label><input id="G" type="number" step="1" value="160"><div></div></div>
+          <div class="row"><label>k1</label><input id="k1" type="number" step="0.01" value="1"><div></div></div>
+          <div class="row"><label>k2</label><input id="k2" type="number" step="0.01" value="0.1"><div></div></div>
+          <div class="row"><label>kN</label><input id="kN" type="number" step="0.01" value="1"><div></div></div>
+          <div class="row"><label>kP</label><input id="kP" type="number" step="0.01" value="1"><div></div></div>
+          <div class="row"><label>b</label><input id="b" type="number" step="0.0005" value="0.005"><div></div></div>
+          <div class="row"><label>KmP</label><input id="KmP" type="number" step="1" value="34"><div></div></div>
+          <div class="row"><label>N0 [nM]</label><input id="N0" type="number" step="0.1" value="10"><div></div></div>
+          <div class="row"><label>P0 [nM]</label><input id="P0" type="number" step="0.1" value="10"><div></div></div>
+          <div class="row"><label>mod_factor</label><input id="mod_factor" type="number" step="0.01" value="1"><div></div></div>
+
+        </div>
+        <div class="buttons">
+          <button id="runBtn">Run</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 説明セクション -->
@@ -31,3 +109,4 @@
   </div>
 </div>
 
+<script type="module" src="./heatmap.js"></script>
