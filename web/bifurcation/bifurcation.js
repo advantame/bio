@@ -10,6 +10,9 @@ const ids = [
   'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0','mod_factor'
 ];
 const el = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+const presetSel = document.getElementById('preset');
+const applyPresetBtn = document.getElementById('applyPreset');
+const presetDesc = document.getElementById('presetDesc');
 
 function valNum(id){ return parseFloat(el[id].value); }
 function baseParams(){
@@ -72,6 +75,49 @@ runBtn.addEventListener('click', async () => {
   status.textContent = `Done. points=${xs.length}`;
   runBtn.disabled = false;
 });
+
+// ---------- Defaults & Presets ----------
+function setVal(id, v){ const e=document.getElementById(id); if(e) e.value = String(v); }
+
+function initDefaults(){
+  // Base parameters (SI S5 PP1 optimized)
+  setVal('pol', 3.7);
+  setVal('rec', 32.5);
+  setVal('G', 150);
+  setVal('k1', 0.0020);
+  setVal('k2', 0.0031);
+  setVal('kN', 0.0210);
+  setVal('kP', 0.0047);
+  setVal('b',  0.000048);
+  setVal('KmP', 34);
+  setVal('N0', 10);
+  setVal('P0', 10);
+  setVal('mod_factor', 1.0);
+
+  // Reasonable simulation window
+  setVal('t_end', 3000);
+  setVal('dt', 0.5);
+  setVal('tail', 50);
+
+  // Sweep defaults (G sweep)
+  setVal('param', 'G');
+  setVal('pmin', 50);
+  setVal('pmax', 300);
+  setVal('steps', 100);
+}
+
+applyPresetBtn.addEventListener('click', () => {
+  const v = presetSel.value;
+  if (v === 'birth') {
+    // 振動の誕生（G掃引）— 図S11cの再現
+    initDefaults();
+    presetDesc.innerHTML = '鋳型DNA濃度 G を掃引し、どこから振動が始まるか（ホップ分岐）を可視化します。SI 図S11cの再現です。';
+  } else {
+    presetDesc.textContent = '';
+  }
+});
+
+initDefaults();
 
 function niceNum(range, round){
   const exponent = Math.floor(Math.log10(range));
@@ -149,4 +195,3 @@ function drawBifurcation(xs, yMin, yMax, pname){
 
 function dot(ctx, x, y, r){ ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
 function roundSmart(v){ const a=Math.abs(v); if(a>=100) return Math.round(v); if(a>=10) return Math.round(v*10)/10; return Math.round(v*100)/100; }
-

@@ -12,6 +12,9 @@ const ids = [
   'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0','mod_factor'
 ];
 const el = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+const presetSel = document.getElementById('preset');
+const applyPresetBtn = document.getElementById('applyPreset');
+const presetDesc = document.getElementById('presetDesc');
 
 function num(id){ return parseFloat(el[id].value); }
 
@@ -96,6 +99,62 @@ runBtn.addEventListener('click', async () => {
   status.textContent = `Done. grid=${nx}x${ny}`;
   runBtn.disabled = false;
 });
+
+// ---------- Defaults & Presets ----------
+function setVal(id, v){ const e=document.getElementById(id); if(e) e.value = String(v); }
+
+function initDefaults(){
+  // Base parameters (SI S5 PP1 optimized)
+  setVal('pol', 3.7);
+  setVal('rec', 32.5);
+  setVal('G', 150);
+  setVal('k1', 0.0020);
+  setVal('k2', 0.0031);
+  setVal('kN', 0.0210);
+  setVal('kP', 0.0047);
+  setVal('b',  0.000048);
+  setVal('KmP', 34);
+  setVal('N0', 10);
+  setVal('P0', 10);
+  setVal('mod_factor', 1.0);
+
+  // Reasonable simulation window
+  setVal('t_end', 3000);
+  setVal('dt', 0.5);
+  setVal('tail', 60);
+
+  // Default grid (G vs k1)
+  setVal('xParam', 'G'); setVal('xMin', 80); setVal('xMax', 250); setVal('xSteps', 20);
+  setVal('yParam', 'mod_factor'); setVal('yMin', 0.4); setVal('yMax', 1.0); setVal('ySteps', 15);
+  setVal('metric', 'period');
+}
+
+applyPresetBtn.addEventListener('click', () => {
+  const v = presetSel.value;
+  if (v === 'mod') {
+    // アミノ酸修飾の影響（周期）
+    initDefaults();
+    presetDesc.innerHTML = 'アミノ酸修飾（mod\_factor）と鋳型濃度 G の関係で、周期（Pピーク間平均）の変化を可視化します。';
+  } else if (v === 'balance') {
+    // 酵素バランスと安定性（振幅）
+    // Base
+    setVal('pol', 3.7); setVal('k1', 0.0020);
+    setVal('rec', 32.5); setVal('G', 150);
+    setVal('k2', 0.0031); setVal('kN', 0.0210); setVal('kP', 0.0047); setVal('b', 0.000048);
+    setVal('KmP', 34); setVal('N0', 10); setVal('P0', 10); setVal('mod_factor', 1.0);
+    // Window
+    setVal('t_end', 3000); setVal('dt', 0.5); setVal('tail', 50);
+    // Grid: G vs rec, amplitude
+    setVal('xParam', 'G'); setVal('xMin', 50); setVal('xMax', 300); setVal('xSteps', 20);
+    setVal('yParam', 'rec'); setVal('yMin', 10); setVal('yMax', 50); setVal('ySteps', 15);
+    setVal('metric', 'amplitude');
+    presetDesc.innerHTML = '鋳型濃度 G と分解酵素 rec のバランスが振幅（=振動の有無）に与える影響を可視化します。';
+  } else {
+    presetDesc.textContent = '';
+  }
+});
+
+initDefaults();
 
 function drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, metric){
   const W = cv.width, H = cv.height;
@@ -182,4 +241,3 @@ function turbo(t){
     Math.min(255, Math.max(0, b)),
   ];
 }
-

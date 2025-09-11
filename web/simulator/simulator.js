@@ -13,10 +13,21 @@ const s = bindSliders([
 ]);
 
 const DEFAULTS = {
-  pol:1, rec:1, G:160,
-  k1:1, k2:0.1, kN:1, kP:1, b:0.005, KmP:34,
-  N0:10, P0:10, mod:1,
-  t_end:2600, dt:1
+  // SI S5: PP1 optimized / standard-like conditions
+  pol: 3.7,
+  rec: 32.5,
+  G: 150,
+  k1: 0.0020,
+  k2: 0.0031,
+  kN: 0.0210,
+  kP: 0.0047,
+  b:  0.000048,
+  KmP: 34,
+  N0: 10,
+  P0: 10,
+  mod: 1.0,
+  t_end: 2000,
+  dt: 0.5,
 };
 
 resetBtn.addEventListener('click', () => {
@@ -230,4 +241,3 @@ function bindSliders(keys){
 function setVal(key, val){ const r = byId(key), n = byId(key+"_n"); if(r){ r.value = val; } if(n){ n.value = val; } }
 function gNum(key){ return parseFloat(byId(key).value); }
 function byId(id){ return document.getElementById(id); }
-

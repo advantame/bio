@@ -39,6 +39,16 @@
         <div id="status" class="note"></div>
       </div>
       <div class="card" style="flex:1 1 320px; min-width:320px;">
+        <div class="rows" style="margin-bottom:10px;">
+          <div class="row">
+            <label for="preset">プリセット</label>
+            <select id="preset">
+              <option value="none">選択してください</option>
+              <option value="birth">振動の誕生（G掃引）</option>
+            </select>
+            <button id="applyPreset">Apply</button>
+          </div>
+        </div>
         <div class="rows">
           <div class="row">
             <label for="param">掃引パラメータ</label>
@@ -99,6 +109,7 @@
         <div class="buttons">
           <button id="runBtn">Run</button>
         </div>
+        <div id="presetDesc" class="note" style="margin-top:8px;"></div>
       </div>
     </div>
   </div>

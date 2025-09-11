@@ -38,6 +38,17 @@
         <div id="status" class="note"></div>
       </div>
       <div class="card" style="flex:1 1 360px; min-width:320px;">
+        <div class="rows" style="margin-bottom:10px;">
+          <div class="row">
+            <label for="preset">プリセット</label>
+            <select id="preset">
+              <option value="none">選択してください</option>
+              <option value="mod">アミノ酸修飾の影響（周期）</option>
+              <option value="balance">酵素バランスと安定性（振幅）</option>
+            </select>
+            <button id="applyPreset">Apply</button>
+          </div>
+        </div>
         <div class="rows">
           <div class="row">
             <label for="xParam">Xパラメータ</label>
@@ -102,6 +113,7 @@
         <div class="buttons">
           <button id="runBtn">Run</button>
         </div>
+        <div id="presetDesc" class="note" style="margin-top:8px;"></div>
       </div>
     </div>
   </div>
