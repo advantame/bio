@@ -69,6 +69,12 @@ A Rust + WebAssembly + Canvas web app to explore a DNA-based predator–prey osc
 - Netlify build uses `netlify-build.sh` which installs `wasm-pack` (if needed) and builds to `web/pkg/`
 - `netlify.toml` sets the publish directory and serves `.wasm` with correct MIME
 
+### GitHub Pages (mirror)
+- Use GitHub Actions to build and deploy from `main` to GitHub Pages.
+- Workflow: `.github/workflows/deploy-pages.yml` (builds crate with `wasm-pack`, uploads `web/` as the artifact).
+- Ensure `web/.nojekyll` exists (added) so static assets under `pkg/` are served as-is.
+- In repository Settings → Pages, set Source to “GitHub Actions”. The workflow publishes to the Pages environment automatically on push to `main`.
+
 ## Git & Branches
 - Default working branch renamed to `main` (pushed as `origin/main`)
 - SSH remotes are used (private repository); ensure a valid SSH key is registered in GitHub if pushing from a new environment
@@ -89,4 +95,3 @@ A Rust + WebAssembly + Canvas web app to explore a DNA-based predator–prey osc
 
 ---
 Maintained by: agents working on the PP-oscillation simulation app. Follow this guide for consistent changes across Rust/WASM/JS.
-
