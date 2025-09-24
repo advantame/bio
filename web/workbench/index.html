@@ -82,6 +82,15 @@
     <div class="card">
       <div class="section">
         <h3>Library</h3>
+        <label class="note" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
+          Charge filter
+          <select id="libraryChargeFilter">
+            <option value="any">Any</option>
+            <option value="positive">Positive</option>
+            <option value="negative">Negative</option>
+            <option value="neutral">Neutral</option>
+          </select>
+        </label>
         <div class="list" id="modList"></div>
         <div class="mod-actions">
           <button id="addModBtn" class="primary">New Modification</button>

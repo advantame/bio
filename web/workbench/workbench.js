@@ -17,6 +17,7 @@ import {
 import { parsePreyCsvFile, parseTitrationCsvFile } from './fit/importer.js';
 import { fitPreyDataset, deriveModificationFactors } from './fit/prey_fit.js';
 import { fitTitrationDataset, deriveRAssoc } from './fit/titration.js';
+import { computeDescriptors, passesFilters, CHARGE_FILTER_OPTIONS } from './library.js';
 
 const BASE_CONTEXT = {
   pol: 3.7,
@@ -31,6 +32,7 @@ const BASE_CONTEXT = {
 
 const elements = {
   list: document.getElementById('modList'),
+  chargeFilter: document.getElementById('libraryChargeFilter'),
   addBtn: document.getElementById('addModBtn'),
   deleteBtn: document.getElementById('deleteModBtn'),
   setActiveBtn: document.getElementById('setActiveBtn'),
@@ -92,6 +94,7 @@ const elements = {
 let mods = loadModifications();
 let selectedId = mods.length ? mods[0].id : null;
 let suppressUpdates = false;
+const libraryFilters = { charge: 'any' };
 
 if (!selectedId) {
   selectedId = null;
@@ -109,6 +112,8 @@ function renderList() {
   const activeId = getActiveModificationId();
   const overlayIds = new Set(pruneOverlayIds(getOverlayModificationIds(), mods));
   mods.forEach((mod) => {
+    const descriptors = computeDescriptors(mod);
+    if (!passesFilters(descriptors, libraryFilters)) return;
     const card = document.createElement('div');
     card.className = 'mod-card' + (mod.id === selectedId ? ' active' : '');
     const title = document.createElement('div');
@@ -117,7 +122,12 @@ function renderList() {
     const meta = document.createElement('div');
     meta.className = 'meta';
     const assoc = resolveRAssoc(mod).toFixed(2);
-    meta.innerHTML = `r<sub>assoc</sub>: ${assoc} · r<sub>poly</sub>: ${(mod.rPoly ?? 1).toFixed(2)} · r<sub>nick</sub>: ${(mod.rNick ?? 1).toFixed(2)}`;
+    const descriptorBits = [];
+    if (descriptors?.charge) descriptorBits.push(`charge=${descriptors.charge}`);
+    if (descriptors?.aromatic) descriptorBits.push(descriptors.aromatic);
+    if (Number.isFinite(descriptors?.linkerLength)) descriptorBits.push(`linker=${descriptors.linkerLength}`);
+    const descriptorText = descriptorBits.length ? ` · ${descriptorBits.join(', ')}` : '';
+    meta.innerHTML = `r<sub>assoc</sub>: ${assoc} · r<sub>poly</sub>: ${(mod.rPoly ?? 1).toFixed(2)} · r<sub>nick</sub>: ${(mod.rNick ?? 1).toFixed(2)}${descriptorText}`;
     if (activeId === mod.id) {
       const badge = document.createElement('span');
       badge.className = 'badge';
@@ -258,6 +268,19 @@ function updateStatusBanner() {
   const derived = computeEffectiveParameters(BASE_CONTEXT, mod);
   banner.hidden = false;
   banner.textContent = `Active modification: ${mod.label || 'Unnamed'} · k1'=${derived.k1Eff.toExponential(3)} · b'=${derived.bEff.toExponential(3)} · β'=${derived.betaEff.toFixed(3)}`;
+}
+
+function populateChargeFilterOptions() {
+  const select = elements.chargeFilter;
+  if (!select) return;
+  select.innerHTML = '';
+  CHARGE_FILTER_OPTIONS.forEach((opt) => {
+    const option = document.createElement('option');
+    option.value = opt.value;
+    option.textContent = opt.label;
+    select.appendChild(option);
+  });
+  select.value = libraryFilters.charge || 'any';
 }
 
 function appendFitHistory(entry, mod) {
@@ -850,6 +873,13 @@ function toggleHairpin(evt) {
 
 function init() {
   ensureSelectedExists();
+  populateChargeFilterOptions();
+  if (elements.chargeFilter) {
+    elements.chargeFilter.addEventListener('change', (evt) => {
+      libraryFilters.charge = evt.target.value || 'any';
+      renderList();
+    });
+  }
   renderList();
   populateForm();
   updateStatusBanner();

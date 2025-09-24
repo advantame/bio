@@ -28,7 +28,7 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 ### Milestone B — Library & Reporting
 | Task | Details |
 | --- | --- |
-| B1. Tagging model | Extend `Modification` schema with descriptors (charge, aromaticity, linker length). Migrate stored cards. |
+| B1. Tagging model | Extend `Modification` schema with descriptors (charge, aromaticity, linker length). Migrate stored cards. _Status:_ heuristics + filter scaffolding implemented (`workbench/library.js`). |
 | B2. Library UI | Table/list with filters, multi-select for overlays, quick actions (compare in Bifurcation/Heatmap). |
 | B3. Exporter | Produce CSV + lightweight PDF (via jsPDF) summarizing modifications and diagnostics. |
 | B4. Overlay presets | Allow saving named overlay sets for quick activation. |
@@ -64,7 +64,7 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 - [x] Draft Fit UI skeleton and wire to new modules.
 - [x] Implement GN titration helper and integrate into Fit flow.
 - [x] Add Fit logging/export (JSON/CSV hooks).
-- [ ] Define data structures for Library filters.
+- [x] Define data structures for Library filters.
 - [ ] Enumerate regression scenarios and capture baselines.
 
 Keep this plan synced with `docs/modification-workbench-development-plan.md`. Update checkboxes and milestones as work progresses.
