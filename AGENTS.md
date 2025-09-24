@@ -80,6 +80,11 @@ A Rust + WebAssembly + Canvas web app to explore a DNA-based predator–prey osc
 - Ensure `web/.nojekyll` exists (added) so static assets under `pkg/` are served as-is.
 - In repository Settings → Pages, set Source to “GitHub Actions”. The workflow publishes to the Pages environment automatically on push to `main`.
 
+### Workflow expectations
+- **Commit discipline**: every meaningful code/documentation change must be committed on `main` (or a feature branch) before switching tasks. Avoid accumulating uncommitted edits.
+- **Docs sync**: update the relevant documentation files (`docs/`, `AGENTS.md`, Workbench roadmap/plan) immediately after implementing features or altering presets/defaults so that a new agent can resume without Codex context.
+- Record any deviations from the specification or temporary shortcuts in the roadmap file to maintain traceability.
+
 ## Git & Branches
 - Default working branch renamed to `main` (pushed as `origin/main`)
 - SSH remotes are used (private repository); ensure a valid SSH key is registered in GitHub if pushing from a new environment
