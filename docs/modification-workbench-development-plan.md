@@ -18,7 +18,7 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 | --- | --- | --- | --- |
 | **A1. CSV ingestion module** ✅ | Parse `time,F_green[,F_yellow]` with options from `CsvImportOptions`; apply cross-talk, baseline correction, unit scaling. | `web/workbench/fit/importer.js` | Mirrors spec §7.1. Tests pending. |
 | **A2. Prey-only solver** ✅ | Linearised estimator with optional Huber loss; compute covariance → CI. | `web/workbench/fit/prey_fit.js` | Deterministic; returns diagnostics + factors. |
-| A3. GN titration helper | Fit binding curve to recover `K_a^{GN}`; map to `r_assoc`. | Helper returning `r_assoc`, CI, diagnostics. | Provide linear fallback if saturation fit fails (§8.3). |
+| **A3. GN titration helper** ✅ | Fit binding curve to recover `K_a^{GN}`; map to `r_assoc`. | `web/workbench/fit/titration.js` + Workbench integration. | Uses 1D log-space search; warns on singularities (§8.3). |
 | **A4. Factor reconciliation** ✅ | Combine baseline `(k1,b)` and fitted `(k1',b')` → `r_poly`, `r_nick`; warn on CI conflicts. | Integrated in `workbench.js` Fit flow. | Uses spec eqns (§4, §8.2). |
 | **A5. Fit UI** ✅ | Build Fit subsection (dropzone, controls, results cards, warnings). | `workbench/index.html` + `workbench.js`. | Handles drag/drop and browse. |
 | A6. Logging & audit | Persist `FitResult` per spec §6.1; allow export. | LocalStorage payload + download JSON. | Keep timestamp + dataset hash. |
@@ -62,7 +62,7 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 ## 5. Next Steps Checklist
 - [x] Implement CSV importer (unit tests outstanding).
 - [x] Draft Fit UI skeleton and wire to new modules.
-- [ ] Implement GN titration helper and integrate into Fit flow.
+- [x] Implement GN titration helper and integrate into Fit flow.
 - [ ] Add Fit logging/export (JSON/CSV hooks).
 - [ ] Define data structures for Library filters.
 - [ ] Enumerate regression scenarios and capture baselines.

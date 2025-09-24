@@ -4,7 +4,7 @@
 // on modelling rather than I/O. All operations are deterministic to aid in
 // reproducible analyses.
 
-const DEFAULT_OPTIONS = {
+const DEFAULT_PREY_OPTIONS = {
   separator: ',',
   header: true,
   timeUnit: 's',
@@ -19,6 +19,15 @@ const DEFAULT_OPTIONS = {
     fromYellowToGreen: 0,
   },
   greenScale: 1, // arbitrary fluorescence → concentration multiplier (nM/unit)
+};
+
+const DEFAULT_TITRATION_OPTIONS = {
+  separator: ',',
+  header: true,
+  channels: {
+    ligand: 'N',
+    response: 'F',
+  },
 };
 
 /** Median helper for small arrays. */
@@ -53,16 +62,16 @@ function parseNumber(value) {
 /**
  * Normalize options by merging defaults.
  */
-function normalizeOptions(opts = {}) {
+function normalizePreyOptions(opts = {}) {
   const merged = {
-    ...DEFAULT_OPTIONS,
+    ...DEFAULT_PREY_OPTIONS,
     ...opts,
-    channels: { ...DEFAULT_OPTIONS.channels, ...(opts.channels || {}) },
-    crossTalk: { ...DEFAULT_OPTIONS.crossTalk, ...(opts.crossTalk || {}) },
+    channels: { ...DEFAULT_PREY_OPTIONS.channels, ...(opts.channels || {}) },
+    crossTalk: { ...DEFAULT_PREY_OPTIONS.crossTalk, ...(opts.crossTalk || {}) },
   };
-  if (!merged.separator) merged.separator = DEFAULT_OPTIONS.separator;
-  if (!merged.baselinePoints || merged.baselinePoints < 1) merged.baselinePoints = DEFAULT_OPTIONS.baselinePoints;
-  if (merged.greenScale === undefined || merged.greenScale === null) merged.greenScale = DEFAULT_OPTIONS.greenScale;
+  if (!merged.separator) merged.separator = DEFAULT_PREY_OPTIONS.separator;
+  if (!merged.baselinePoints || merged.baselinePoints < 1) merged.baselinePoints = DEFAULT_PREY_OPTIONS.baselinePoints;
+  if (merged.greenScale === undefined || merged.greenScale === null) merged.greenScale = DEFAULT_PREY_OPTIONS.greenScale;
   return merged;
 }
 
@@ -128,7 +137,7 @@ export function parsePreyCsv(csvText, options = {}) {
   if (typeof csvText !== 'string' || !csvText.trim()) {
     throw new Error('Empty CSV payload');
   }
-  const opts = normalizeOptions(options);
+  const opts = normalizePreyOptions(options);
 
   const lines = csvText.replace(/\r\n?/g, '\n').split('\n').filter((line) => line.trim().length > 0);
   if (!lines.length) throw new Error('CSV payload contains no data rows');
@@ -218,6 +227,74 @@ export async function parsePreyCsvFile(file, options = {}) {
   }
   const text = await file.text();
   return parsePreyCsv(text, options);
+}
+
+function normalizeTitrationOptions(opts = {}) {
+  const merged = {
+    ...DEFAULT_TITRATION_OPTIONS,
+    ...opts,
+    channels: { ...DEFAULT_TITRATION_OPTIONS.channels, ...(opts.channels || {}) },
+  };
+  if (!merged.separator) merged.separator = DEFAULT_TITRATION_OPTIONS.separator;
+  if (merged.header === undefined) merged.header = true;
+  return merged;
+}
+
+export function parseTitrationCsv(csvText, options = {}) {
+  if (typeof csvText !== 'string' || !csvText.trim()) {
+    throw new Error('Empty CSV payload');
+  }
+  const opts = normalizeTitrationOptions(options);
+  const lines = csvText.replace(/\r\n?/g, '\n').split('\n').filter((line) => line.trim().length > 0);
+  if (!lines.length) throw new Error('CSV payload contains no data rows');
+
+  let separator = opts.separator;
+  if (!separator || separator === 'auto') separator = detectSeparator(lines[0]);
+
+  let header = null;
+  let dataStartIndex = 0;
+  if (opts.header !== false) {
+    header = lines[0].split(separator).map((h) => h.trim());
+    dataStartIndex = 1;
+  }
+
+  const idxLigand = header ? header.indexOf(opts.channels.ligand) : 0;
+  const idxResponse = header ? header.indexOf(opts.channels.response) : 1;
+  if (idxLigand === -1) throw new Error(`Missing ligand column '${opts.channels.ligand}'`);
+  if (idxResponse === -1) throw new Error(`Missing response column '${opts.channels.response}'`);
+
+  const ligand = [];
+  const response = [];
+  const warnings = [];
+
+  for (let i = dataStartIndex; i < lines.length; i += 1) {
+    const cols = lines[i].split(separator);
+    if (cols.length < 2) continue;
+    const l = parseNumber(cols[idxLigand]);
+    const f = parseNumber(cols[idxResponse]);
+    if (!Number.isFinite(l) || !Number.isFinite(f)) {
+      warnings.push(`Row ${i + 1}: invalid numeric data (ligand=${cols[idxLigand]}, response=${cols[idxResponse]})`);
+      continue;
+    }
+    ligand.push(l);
+    response.push(f);
+  }
+
+  if (ligand.length < 3) throw new Error('Need at least 3 titration points');
+
+  return {
+    ligand: Float64Array.from(ligand),
+    response: Float64Array.from(response),
+    warnings,
+    separator,
+    options: opts,
+  };
+}
+
+export async function parseTitrationCsvFile(file, options = {}) {
+  if (!(file instanceof Blob)) throw new Error('Expected a File or Blob');
+  const text = await file.text();
+  return parseTitrationCsv(text, options);
 }
 
 export default parsePreyCsv;

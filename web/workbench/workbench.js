@@ -14,8 +14,9 @@ import {
   setOverlayModificationIds,
   upsertModification,
 } from '../modifications.js';
-import { parsePreyCsvFile } from './fit/importer.js';
+import { parsePreyCsvFile, parseTitrationCsvFile } from './fit/importer.js';
 import { fitPreyDataset, deriveModificationFactors } from './fit/prey_fit.js';
+import { fitTitrationDataset, deriveRAssoc } from './fit/titration.js';
 
 const BASE_CONTEXT = {
   pol: 3.7,
@@ -70,6 +71,17 @@ const elements = {
     crosstalkYG: document.getElementById('fitCrosstalkYG'),
     crosstalkGY: document.getElementById('fitCrosstalkGY'),
     greenScale: document.getElementById('fitGreenScale'),
+    titration: {
+      dropZone: document.getElementById('fitTitrationDropZone'),
+      browse: document.getElementById('fitTitrationBrowse'),
+      fileInput: document.getElementById('fitTitrationFile'),
+      meta: document.getElementById('fitTitrationMeta'),
+      warnings: document.getElementById('fitTitrationWarnings'),
+      results: document.getElementById('fitTitrationResults'),
+      kaRef: document.getElementById('fitKaRef'),
+      kaMin: document.getElementById('fitKaMin'),
+      kaMax: document.getElementById('fitKaMax'),
+    },
   },
 };
 
@@ -457,6 +469,147 @@ function setupFitSection(){
   });
 }
 
+function getTitrationFormValues(){
+  const tit = elements.fit?.titration;
+  if (!tit) return null;
+  const kaRef = Number.parseFloat(tit.kaRef?.value);
+  const logMin = Number.parseFloat(tit.kaMin?.value);
+  const logMax = Number.parseFloat(tit.kaMax?.value);
+  return {
+    kaRef: Number.isFinite(kaRef) && kaRef > 0 ? kaRef : 1,
+    logKaMin: Number.isFinite(logMin) ? logMin : -6,
+    logKaMax: Number.isFinite(logMax) ? logMax : 6,
+  };
+}
+
+function setTitrationMeta(text){
+  const el = elements.fit?.titration?.meta;
+  if (el) el.textContent = text || '';
+}
+
+function setTitrationWarnings(messages){
+  const el = elements.fit?.titration?.warnings;
+  if (!el) return;
+  if (messages && messages.length){
+    el.hidden = false;
+    el.textContent = messages.join(' ');
+  } else {
+    el.hidden = true;
+    el.textContent = '';
+  }
+}
+
+function renderTitrationResults(fit, rAssoc, fileName){
+  const container = elements.fit?.titration?.results;
+  if (!container) return;
+  container.innerHTML = '';
+  if (!fit) return;
+  const cards = [
+    {
+      title: "Kₐ [M⁻¹]",
+      body: `${fit.Ka.toExponential(3)} (95% CI ${fit.KaCI[0].toExponential(3)} – ${fit.KaCI[1].toExponential(3)})`,
+    },
+    {
+      title: 'r_assoc',
+      body: Number.isFinite(rAssoc) ? rAssoc.toFixed(3) : '—',
+    },
+    {
+      title: 'R²',
+      body: `${(fit.r2 * 100).toFixed(2)}%`,
+    },
+  ];
+  cards.forEach((card) => {
+    const div = document.createElement('div');
+    div.className = 'fit-result-card';
+    const h = document.createElement('h4');
+    h.textContent = card.title;
+    const p = document.createElement('p');
+    p.textContent = card.body;
+    div.appendChild(h);
+    div.appendChild(p);
+    container.appendChild(div);
+  });
+  const meta = [fileName ? `File: ${fileName}` : null, `Points: ${fit.residuals.length}`]
+    .filter(Boolean)
+    .join(' • ');
+  setTitrationMeta(meta);
+}
+
+async function processTitrationFile(file){
+  const opts = getTitrationFormValues();
+  if (!opts) return;
+  setTitrationMeta('Parsing CSV…');
+  setTitrationWarnings(null);
+  if (elements.fit?.titration?.results) elements.fit.titration.results.innerHTML = '';
+  try {
+    const dataset = await parseTitrationCsvFile(file);
+    const fit = fitTitrationDataset(dataset, { logKaMin: opts.logKaMin, logKaMax: opts.logKaMax });
+    const rAssoc = deriveRAssoc(fit.Ka, opts.kaRef);
+    const mod = currentMod();
+    let warnings = [...(dataset.warnings || [])];
+    if (mod) {
+      updateMod({
+        rAssoc: Number.isFinite(rAssoc) ? rAssoc : mod.rAssoc,
+        deltaDeltaGAssoc: undefined,
+        lastTitration: {
+          timestamp: new Date().toISOString(),
+          fileName: file.name,
+          result: fit,
+          options: opts,
+        },
+      });
+    } else {
+      warnings.unshift('Select a modification card before applying titration results.');
+    }
+    setTitrationWarnings(warnings);
+    renderTitrationResults(fit, rAssoc, file.name);
+  } catch (err) {
+    console.error('[titration] failed', err);
+    setTitrationMeta('Titration fit failed.');
+    setTitrationWarnings([err.message || String(err)]);
+  }
+}
+
+function setupTitrationSection(){
+  const tit = elements.fit?.titration;
+  if (!tit || !tit.dropZone) return;
+  const dropZone = tit.dropZone;
+  const clear = () => dropZone.classList.remove('dragover');
+
+  dropZone.addEventListener('dragover', (evt) => {
+    evt.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  dropZone.addEventListener('dragleave', clear);
+  dropZone.addEventListener('drop', (evt) => {
+    evt.preventDefault();
+    clear();
+    const file = evt.dataTransfer?.files?.[0];
+    if (file) processTitrationFile(file);
+  });
+  dropZone.addEventListener('click', (evt) => {
+    if (evt.target === tit.browse) return;
+    tit.fileInput?.click();
+  });
+  dropZone.addEventListener('keypress', (evt) => {
+    if (evt.key === 'Enter' || evt.key === ' ') {
+      evt.preventDefault();
+      tit.fileInput?.click();
+    }
+  });
+
+  tit.browse?.addEventListener('click', (evt) => {
+    evt.preventDefault();
+    tit.fileInput?.click();
+  });
+
+  tit.fileInput?.addEventListener('change', (evt) => {
+    const file = evt.target.files?.[0];
+    if (file) processTitrationFile(file);
+    evt.target.value = '';
+  });
+}
+
 function updateBindingTable() {
   const variants = buildSimulationVariants(BASE_CONTEXT);
   const table = elements.bindingTable;
@@ -603,6 +756,7 @@ function init() {
   });
 
   setupFitSection();
+  setupTitrationSection();
 }
 
 init();
