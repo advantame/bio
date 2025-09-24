@@ -28,6 +28,8 @@
     <a href="../bifurcation/">Bifurcation</a>
     <span>·</span>
     <a href="../heatmap/">Heatmap</a>
+    <span>·</span>
+    <a href="../workbench/">Modification Workbench</a>
   </div>
 
   <div class="card">
@@ -36,6 +38,10 @@
       <div style="flex:2 1 520px; min-width:420px;">
         <canvas id="cv" width="1200" height="560"></canvas>
         <div id="status" class="note"></div>
+        <div class="note" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          表示:
+          <select id="variantSelect" style="width:auto; min-width:200px;"></select>
+        </div>
       </div>
       <div class="card" style="flex:1 1 360px; min-width:320px;">
         <div class="rows" style="margin-bottom:10px;">
@@ -55,7 +61,6 @@
             <select id="xParam">
               <option value="G">G</option>
               <option value="k1">k1</option>
-              <option value="mod_factor">mod_factor</option>
               <option value="pol">pol</option>
               <option value="rec">rec</option>
               <option value="KmP">KmP</option>
@@ -70,7 +75,6 @@
             <label for="yParam">Yパラメータ</label>
             <select id="yParam">
               <option value="k1">k1</option>
-              <option value="mod_factor">mod_factor</option>
               <option value="G">G</option>
               <option value="pol">pol</option>
               <option value="rec">rec</option>
@@ -107,8 +111,6 @@
           <div class="row"><label>KmP</label><input id="KmP" type="number" step="1" value="34"><div></div></div>
           <div class="row"><label>N0 [nM]</label><input id="N0" type="number" step="0.1" value="10"><div></div></div>
           <div class="row"><label>P0 [nM]</label><input id="P0" type="number" step="0.1" value="10"><div></div></div>
-          <div class="row"><label>mod_factor</label><input id="mod_factor" type="number" step="0.01" value="1"><div></div></div>
-
         </div>
         <div class="buttons">
           <button id="runBtn">Run</button>

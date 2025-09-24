@@ -1,18 +1,30 @@
 import { initWasm, runSimulationPhysical } from "../core.js";
+import { buildSimulationVariants } from "../modifications.js";
 
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d', { alpha:false });
 const status = document.getElementById('status');
+const legend = document.getElementById('legend');
 const runBtn = document.getElementById('runBtn');
 
 const ids = [
   'param','pmin','pmax','steps','t_end','dt','tail',
-  'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0','mod_factor'
+  'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0'
 ];
 const el = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 const presetSel = document.getElementById('preset');
 const applyPresetBtn = document.getElementById('applyPreset');
 const presetDesc = document.getElementById('presetDesc');
+
+const BASELINE_COLOR = '#1d4ed8';
+const ACTIVE_COLOR = '#ef4444';
+const OVERLAY_COLORS = ['#9333ea', '#22c55e', '#f97316', '#0ea5e9'];
+
+function colorForVariant(variant, overlayIdx){
+  if (variant.type === 'baseline') return BASELINE_COLOR;
+  if (variant.type === 'active') return ACTIVE_COLOR;
+  return OVERLAY_COLORS[overlayIdx % OVERLAY_COLORS.length];
+}
 
 function valNum(id){ return parseFloat(el[id].value); }
 function baseParams(){
@@ -28,7 +40,6 @@ function baseParams(){
     KmP: valNum('KmP'),
     N0: valNum('N0'),
     P0: valNum('P0'),
-    mod_factor: valNum('mod_factor'),
     t_end_min: valNum('t_end'),
     dt_min: valNum('dt'),
   };
@@ -45,34 +56,78 @@ runBtn.addEventListener('click', async () => {
   const steps = Math.max(1, Math.floor(valNum('steps')));
   const tailPct = Math.min(100, Math.max(1, Math.floor(valNum('tail'))));
 
-  const xs = [];
-  const yMin = [];
-  const yMax = [];
-
   const bp = baseParams();
+  const previewParams = { ...bp, [pname]: pmin };
+  const previewVariants = buildSimulationVariants(previewParams);
+  const variantStyles = new Map();
+  let overlayIdx = 0;
+  for (const variant of previewVariants){
+    const color = colorForVariant(variant, overlayIdx);
+    variantStyles.set(variant.id, color);
+    if (variant.type === 'overlay') overlayIdx++;
+  }
+
+  const seriesMap = new Map();
   const nSteps = steps;
   for (let i=0; i<nSteps; i++){
     const t0 = performance.now();
     const x = pmin + (pmax - pmin) * (i / (nSteps - 1 || 1));
-    const params = { ...bp, [pname]: x };
-    const { P } = runSimulationPhysical(params);
-    const tail = Math.max(1, Math.floor(P.length * (tailPct/100)));
-    let pminTail = +Infinity, pmaxTail = -Infinity;
-    for (let j=P.length - tail; j<P.length; j++){
-      const v = P[j];
-      if (v < pminTail) pminTail = v;
-      if (v > pmaxTail) pmaxTail = v;
+    const paramsBase = { ...bp, [pname]: x };
+    const variants = buildSimulationVariants(paramsBase);
+    for (const variant of variants){
+      const arr = runSimulationPhysical(variant.params);
+      const len = arr.length / 2 | 0;
+      const P = arr.slice(len);
+      const tail = Math.max(1, Math.floor(P.length * (tailPct/100)));
+      let pminTail = +Infinity, pmaxTail = -Infinity;
+      for (let j=P.length - tail; j<P.length; j++){
+        const v = P[j];
+        if (v < pminTail) pminTail = v;
+        if (v > pmaxTail) pmaxTail = v;
+      }
+      let entry = seriesMap.get(variant.id);
+      if (!entry){
+        if (!variantStyles.has(variant.id)){
+          const color = colorForVariant(variant, overlayIdx);
+          variantStyles.set(variant.id, color);
+          if (variant.type === 'overlay') overlayIdx++;
+        }
+        entry = {
+          id: variant.id,
+          label: variant.label,
+          type: variant.type,
+          color: variantStyles.get(variant.id),
+          lineDash: variant.type === 'overlay' ? [4,4] : [],
+          xs: [],
+          yMin: [],
+          yMax: [],
+          derived: variant.derived,
+        };
+        seriesMap.set(variant.id, entry);
+      }
+      entry.xs.push(x);
+      entry.yMin.push(pminTail);
+      entry.yMax.push(pmaxTail);
     }
-    xs.push(x);
-    yMin.push(pminTail);
-    yMax.push(pmaxTail);
     const t1 = performance.now();
-    if ((i%5)===0) status.textContent = `Running sweep... ${i+1}/${nSteps} | last ${(t1-t0).toFixed(1)} ms`;
-    await new Promise(r => setTimeout(r)); // yield UI
+    if ((i%5)===0) {
+      status.textContent = `Running sweep... ${i+1}/${nSteps} | last ${(t1-t0).toFixed(1)} ms`;
+    }
+    await new Promise(r => setTimeout(r));
   }
 
-  drawBifurcation(xs, yMin, yMax, pname);
-  status.textContent = `Done. points=${xs.length}`;
+  const seriesList = Array.from(seriesMap.values()).sort((a, b) => {
+    if (a.type === b.type) return a.label.localeCompare(b.label);
+    if (a.type === 'baseline') return -1;
+    if (b.type === 'baseline') return 1;
+    if (a.type === 'active') return -1;
+    if (b.type === 'active') return 1;
+    return a.label.localeCompare(b.label);
+  });
+
+  drawBifurcation(seriesList, pname);
+  renderLegend(seriesList);
+  status.textContent = `Done. points=${seriesList[0]?.xs.length ?? 0} | series=${seriesList.length}`;
   runBtn.disabled = false;
 });
 
@@ -92,7 +147,6 @@ function initDefaults(){
   setVal('KmP', 34);
   setVal('N0', 10);
   setVal('P0', 10);
-  setVal('mod_factor', 1.0);
 
   // Reasonable simulation window
   setVal('t_end', 3000);
@@ -146,36 +200,65 @@ function niceAxis(min, max, maxTicks=6){
   return {min:niceMin, max:niceMax, step, ticks};
 }
 
-function drawBifurcation(xs, yMin, yMax, pname){
+function drawBifurcation(seriesList, pname){
   const W = cv.width, H = cv.height;
   const L = 70, R = 30, T = 50, B = 60;
   ctx.save(); ctx.fillStyle = '#fff'; ctx.fillRect(0,0,W,H); ctx.restore();
+  if (!seriesList.length) return;
 
-  const xMin = Math.min(...xs), xMax = Math.max(...xs);
-  const yAll = yMin.concat(yMax);
-  const yMinV = Math.min(...yAll), yMaxV = Math.max(...yAll);
+  const allX = [];
+  const allY = [];
+  for (const series of seriesList){
+    allX.push(...series.xs);
+    allY.push(...series.yMin, ...series.yMax);
+  }
+  const xMin = Math.min(...allX), xMax = Math.max(...allX);
+  const yMinV = Math.min(...allY), yMaxV = Math.max(...allY);
   const xPadding = 0.02*(xMax - xMin || 1);
   const yPadding = 0.05*(yMaxV - yMinV || 1);
   const xTicks = niceAxis(xMin - xPadding, xMax + xPadding, 6);
   const yTicks = niceAxis(yMinV - yPadding, yMaxV + yPadding, 6);
 
-  const xOf = (v) => L + ((v - xTicks.min)/(xTicks.max - xTicks.min)) * (W - L - R);
-  const yOf = (v) => H - B - ((v - yTicks.min)/(yTicks.max - yTicks.min)) * (H - T - B);
+  const xOf = (v) => L + ((v - xTicks.min)/(xTicks.max - xTicks.min || 1)) * (W - L - R);
+  const yOf = (v) => H - B - ((v - yTicks.min)/(yTicks.max - yTicks.min || 1)) * (H - T - B);
 
-  // Grid
   ctx.strokeStyle = '#eef2f7'; ctx.lineWidth = 1; ctx.beginPath();
   for (const xv of xTicks.ticks){ const x = xOf(xv); ctx.moveTo(x,T); ctx.lineTo(x,H-B);} 
   for (const yv of yTicks.ticks){ const y = yOf(yv); ctx.moveTo(L,y); ctx.lineTo(W-R,y);} 
   ctx.stroke();
   ctx.strokeStyle = '#e5e7eb'; ctx.strokeRect(L, T, W - L - R, H - T - B);
 
-  // Points: maxima and minima
-  ctx.fillStyle = '#1d4ed8';
-  for (let i=0;i<xs.length;i++){ const x = xOf(xs[i]); const y = yOf(yMax[i]); dot(ctx, x, y, 2); }
-  ctx.fillStyle = '#ef4444';
-  for (let i=0;i<xs.length;i++){ const x = xOf(xs[i]); const y = yOf(yMin[i]); dot(ctx, x, y, 2); }
+  for (const series of seriesList){
+    ctx.setLineDash(series.lineDash || []);
+    ctx.strokeStyle = series.color;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    series.xs.forEach((xVal, idx) => {
+      const x = xOf(xVal);
+      const y = yOf(series.yMax[idx]);
+      if (idx === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
 
-  // Axes labels
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    series.xs.forEach((xVal, idx) => {
+      const x = xOf(xVal);
+      const y = yOf(series.yMin[idx]);
+      if (idx === 0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    ctx.restore();
+
+    for (let i=0;i<series.xs.length;i++){
+      const x = xOf(series.xs[i]);
+      dot(ctx, x, yOf(series.yMax[i]), 3.2, series.color, true);
+      dot(ctx, x, yOf(series.yMin[i]), 2.9, series.color, false);
+    }
+  }
+
+  ctx.setLineDash([]);
   ctx.fillStyle = '#111827';
   ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
@@ -193,5 +276,31 @@ function drawBifurcation(xs, yMin, yMax, pname){
   ctx.fillText('Bifurcation (P max/min vs parameter)', L + (W - L - R)/2, 12);
 }
 
-function dot(ctx, x, y, r){ ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
+function dot(ctx, x, y, r, color, filled){
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI*2);
+  if (filled){
+    ctx.fillStyle = color;
+    ctx.fill();
+  } else {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+  }
+}
+
+function renderLegend(seriesList){
+  if (!legend) return;
+  if (!seriesList.length){
+    legend.textContent = '';
+    return;
+  }
+  legend.style.display = 'flex';
+  legend.style.flexWrap = 'wrap';
+  legend.innerHTML = seriesList.map((series) => {
+    return `<span style="display:inline-flex;align-items:center;gap:6px;margin-right:16px;">` +
+      `<span style="display:inline-block;width:12px;height:12px;border-radius:3px;border:1px solid rgba(15,23,42,0.2);background:${series.color};"></span>` +
+      `${series.label} (${series.type})</span>`;
+  }).join('');
+}
 function roundSmart(v){ const a=Math.abs(v); if(a>=100) return Math.round(v); if(a>=10) return Math.round(v*10)/10; return Math.round(v*100)/100; }

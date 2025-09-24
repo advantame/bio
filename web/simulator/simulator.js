@@ -1,4 +1,5 @@
 import { initWasm, runSimulationPhysical } from "../core.js";
+import { buildSimulationVariants } from "../modifications.js";
 
 const cvTS = document.getElementById('cv_ts');
 const cvPH = document.getElementById('cv_phase');
@@ -7,9 +8,11 @@ const ctxPH = cvPH.getContext('2d', { alpha: false });
 const status = byId('status');
 const busy = byId('busy');
 const resetBtn = byId('resetBtn');
+const legendEl = byId('legend');
+const modSummaryEl = byId('modSummary');
 
 const s = bindSliders([
-  'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0','mod','t_end','dt'
+  'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0','t_end','dt'
 ]);
 
 const DEFAULTS = {
@@ -25,10 +28,19 @@ const DEFAULTS = {
   KmP: 34,
   N0: 10,
   P0: 10,
-  mod: 1.0,
   t_end: 2000,
   dt: 0.5,
 };
+
+const BASELINE_COLORS = { prey: '#f97316', pred: '#2c7a7b', lineDash: [] };
+const ACTIVE_COLORS = { prey: '#2563eb', pred: '#0ea5e9', lineDash: [] };
+const OVERLAY_PALETTE = [
+  { prey: '#9333ea', pred: '#c084fc', lineDash: [6, 4] },
+  { prey: '#22c55e', pred: '#0f766e', lineDash: [6, 4] },
+  { prey: '#f43f5e', pred: '#fb7185', lineDash: [4, 4] },
+  { prey: '#14b8a6', pred: '#0ea5e9', lineDash: [4, 4] },
+];
+
 
 resetBtn.addEventListener('click', () => {
   for (const k of Object.keys(DEFAULTS)) setVal(k, DEFAULTS[k]);
@@ -64,60 +76,77 @@ function niceAxis(min, max, maxTicks=6){
 }
 
 // ---------- Drawing ----------
-function drawTimeSeries(N, P){
+function drawTimeSeries(seriesList){
   const W = cvTS.width, H = cvTS.height;
   const L = 70, R = 30, T = 50, B = 60;
-  const n = N.length;
 
   ctxTS.save();
   ctxTS.fillStyle = '#fff';
   ctxTS.fillRect(0,0,W,H);
   ctxTS.restore();
 
-  const dataYmin = Math.min(...N, ...P);
-  const dataYmax = Math.max(...N, ...P);
+  if (!seriesList.length) return;
+
+  let dataYmin = Infinity;
+  let dataYmax = -Infinity;
+  let nMax = 0;
+  for (const series of seriesList){
+    nMax = Math.max(nMax, series.prey.length);
+    for (const v of series.prey){ if (v < dataYmin) dataYmin = v; if (v > dataYmax) dataYmax = v; }
+    for (const v of series.P){ if (v < dataYmin) dataYmin = v; if (v > dataYmax) dataYmax = v; }
+  }
   const yPad = 0.05 * (dataYmax - dataYmin || 1);
   const yTicks  = niceAxis(dataYmin - yPad, dataYmax + yPad, 6);
-  const xTicks  = niceAxis(0, n-1, 7);
+  const xTicks  = niceAxis(0, Math.max(1, nMax - 1), 7);
 
-  const xOf = (i) => L + ((i - 0)/(xTicks.max - 0)) * (W - L - R);
-  const yOf = (v) => H - B - ((v - yTicks.min)/(yTicks.max - yTicks.min)) * (H - T - B);
+  const axisWidth = Math.max(1, xTicks.max - xTicks.min);
+  const axisHeight = Math.max(1, yTicks.max - yTicks.min);
+  const xOf = (i) => L + ((i - xTicks.min)/axisWidth) * (W - L - R);
+  const yOf = (v) => H - B - ((v - yTicks.min)/axisHeight) * (H - T - B);
 
-  // Grid
   ctxTS.strokeStyle = '#eef2f7';
   ctxTS.lineWidth = 1;
   ctxTS.beginPath();
-  for (const xv of xTicks.ticks){ const x = xOf(xv); ctxTS.moveTo(x,T); ctxTS.lineTo(x,H-B);}
+  for (const xv of xTicks.ticks){ const x = xOf(xv); ctxTS.moveTo(x,T); ctxTS.lineTo(x,H-B);} 
   for (const yv of yTicks.ticks){ const y = yOf(yv); ctxTS.moveTo(L,y); ctxTS.lineTo(W-R,y);} 
   ctxTS.stroke();
 
-  // Border
   ctxTS.strokeStyle = '#e5e7eb';
   ctxTS.strokeRect(L, T, W - L - R, H - T - B);
 
-  // Lines
-  ctxTS.lineWidth = 2;
-  ctxTS.beginPath();
-  for (let i=0;i<n;i++){ const x = xOf(i); const y = yOf(N[i]); (i?ctxTS.lineTo(x,y):ctxTS.moveTo(x,y)); }
-  ctxTS.strokeStyle = '#f28c28';
-  ctxTS.stroke();
+  for (const series of seriesList){
+    ctxTS.lineWidth = series.type === 'baseline' ? 2.4 : 1.9;
+    ctxTS.setLineDash(series.lineDash || []);
+    ctxTS.beginPath();
+    const prey = series.prey;
+    for (let i=0;i<prey.length;i++){
+      const x = xOf(i);
+      const y = yOf(prey[i]);
+      if (i === 0) ctxTS.moveTo(x,y); else ctxTS.lineTo(x,y);
+    }
+    ctxTS.strokeStyle = series.colors.prey;
+    ctxTS.stroke();
 
-  ctxTS.beginPath();
-  for (let i=0;i<n;i++){ const x = xOf(i); const y = yOf(P[i]); (i?ctxTS.lineTo(x,y):ctxTS.moveTo(x,y)); }
-  ctxTS.strokeStyle = '#2c7a7b';
-  ctxTS.stroke();
+    ctxTS.beginPath();
+    const P = series.P;
+    for (let i=0;i<P.length;i++){
+      const x = xOf(i);
+      const y = yOf(P[i]);
+      if (i === 0) ctxTS.moveTo(x,y); else ctxTS.lineTo(x,y);
+    }
+    ctxTS.strokeStyle = series.colors.pred;
+    ctxTS.stroke();
+  }
 
-  // Labels
+  ctxTS.setLineDash([]);
   ctxTS.fillStyle = '#0f172a';
   ctxTS.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
   ctxTS.textAlign = 'center'; ctxTS.textBaseline = 'top';
   for (const xv of xTicks.ticks){ const x = xOf(xv); ctxTS.fillText(String(Math.round(xv)), x, H - B + 6); }
   ctxTS.textAlign = 'right'; ctxTS.textBaseline = 'middle';
-  for (const yv of yTicks.ticks){
-    const absRange = Math.abs(yTicks.max - yTicks.min);
-    const digits = absRange >= 100 ? 0 : (absRange >= 10 ? 1 : 2);
-    ctxTS.fillText(yv.toFixed(digits), L - 8, yOf(yv));
-  }
+  const absRange = Math.abs(yTicks.max - yTicks.min);
+  const digits = absRange >= 100 ? 0 : (absRange >= 10 ? 1 : 2);
+  for (const yv of yTicks.ticks){ ctxTS.fillText(yv.toFixed(digits), L - 8, yOf(yv)); }
   ctxTS.fillStyle = '#111827';
   ctxTS.textAlign = 'center'; ctxTS.textBaseline = 'bottom';
   ctxTS.font = '13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
@@ -129,24 +158,29 @@ function drawTimeSeries(N, P){
   ctxTS.restore();
   ctxTS.textAlign = 'center'; ctxTS.textBaseline = 'top';
   ctxTS.font = '16px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-  ctxTS.fillText('Time Series (N, P)', L + (W - L - R)/2, 12);
+  ctxTS.fillText('Time Series (Prey vs Predator)', L + (W - L - R)/2, 12);
 }
 
-function drawPhase(N, P){
+function drawPhase(seriesList){
   const W = cvPH.width, H = cvPH.height;
   const L = 70, R = 30, T = 50, B = 60;
-  const n = N.length;
 
   ctxPH.save(); ctxPH.fillStyle = '#fff'; ctxPH.fillRect(0,0,W,H); ctxPH.restore();
+  if (!seriesList.length) return;
 
-  const xMin = Math.min(...N), xMax = Math.max(...N);
-  const yMin = Math.min(...P), yMax = Math.max(...P);
-  const xPad = 0.05 * (xMax - xMin || 1); const yPad = 0.05 * (yMax - yMin || 1);
+  let xMin = Infinity, xMax = -Infinity;
+  let yMin = Infinity, yMax = -Infinity;
+  for (const series of seriesList){
+    for (const v of series.N){ if (v < xMin) xMin = v; if (v > xMax) xMax = v; }
+    for (const v of series.P){ if (v < yMin) yMin = v; if (v > yMax) yMax = v; }
+  }
+  const xPad = 0.05 * (xMax - xMin || 1);
+  const yPad = 0.05 * (yMax - yMin || 1);
   const xTicks = niceAxis(xMin - xPad, xMax + xPad, 6);
   const yTicks = niceAxis(yMin - yPad, yMax + yPad, 6);
 
-  const xOf = (v) => L + ((v - xTicks.min)/(xTicks.max - xTicks.min)) * (W - L - R);
-  const yOf = (v) => H - B - ((v - yTicks.min)/(yTicks.max - yTicks.min)) * (H - T - B);
+  const xOf = (v) => L + ((v - xTicks.min)/(xTicks.max - xTicks.min || 1)) * (W - L - R);
+  const yOf = (v) => H - B - ((v - yTicks.min)/(yTicks.max - yTicks.min || 1)) * (H - T - B);
 
   ctxPH.strokeStyle = '#eef2f7'; ctxPH.lineWidth = 1; ctxPH.beginPath();
   for (const xv of xTicks.ticks){ const x = xOf(xv); ctxPH.moveTo(x,T); ctxPH.lineTo(x,H-B);} 
@@ -156,12 +190,23 @@ function drawPhase(N, P){
   ctxPH.strokeStyle = '#e5e7eb';
   ctxPH.strokeRect(L, T, W - L - R, H - T - B);
 
-  // Trajectory N(t),P(t)
-  ctxPH.lineWidth = 2; ctxPH.beginPath();
-  for (let i=0;i<n;i++){ const x = xOf(N[i]); const y = yOf(P[i]); (i?ctxPH.lineTo(x,y):ctxPH.moveTo(x,y)); }
-  ctxPH.strokeStyle = '#334155'; ctxPH.stroke();
+  for (const series of seriesList){
+    ctxPH.lineWidth = series.type === 'baseline' ? 2.0 : 1.7;
+    ctxPH.setLineDash(series.lineDash || []);
+    ctxPH.beginPath();
+    const N = series.N;
+    const P = series.P;
+    for (let i=0;i<N.length;i++){
+      const x = xOf(N[i]);
+      const y = yOf(P[i]);
+      if (i === 0) ctxPH.moveTo(x,y); else ctxPH.lineTo(x,y);
+    }
+    ctxPH.strokeStyle = series.colors.pred;
+    ctxPH.stroke();
+  }
 
-  // Labels
+  ctxPH.setLineDash([]);
+
   ctxPH.fillStyle = '#0f172a';
   ctxPH.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
   ctxPH.textAlign = 'center'; ctxPH.textBaseline = 'top';
@@ -190,15 +235,71 @@ function roundSmart(v){
   return Math.round(v*100)/100;
 }
 
+function styleForVariant(variant, overlayIndex){
+  if (variant.type === 'baseline') {
+    return { colors: { prey: BASELINE_COLORS.prey, pred: BASELINE_COLORS.pred }, lineDash: BASELINE_COLORS.lineDash || [] };
+  }
+  if (variant.type === 'active') {
+    return { colors: { prey: ACTIVE_COLORS.prey, pred: ACTIVE_COLORS.pred }, lineDash: ACTIVE_COLORS.lineDash || [] };
+  }
+  const palette = OVERLAY_PALETTE[overlayIndex % OVERLAY_PALETTE.length];
+  return {
+    colors: { prey: palette.prey, pred: palette.pred },
+    lineDash: palette.lineDash ? [...palette.lineDash] : [],
+  };
+}
+
+function renderLegend(seriesList){
+  if (!legendEl) return;
+  legendEl.innerHTML = '';
+  if (!seriesList.length) return;
+  for (const series of seriesList){
+    const row = document.createElement('div');
+    row.className = 'legend-row';
+    const swatches = document.createElement('div');
+    swatches.className = 'legend-swatches';
+    const preySw = document.createElement('span');
+    preySw.className = 'swatch';
+    preySw.style.background = series.colors.prey;
+    const predSw = document.createElement('span');
+    predSw.className = 'swatch';
+    predSw.style.background = series.colors.pred;
+    swatches.appendChild(preySw);
+    swatches.appendChild(predSw);
+    const label = document.createElement('span');
+    const typeLabel = series.type === 'baseline' ? 'Baseline' : (series.type === 'active' ? 'Active' : 'Overlay');
+    label.innerHTML = `<strong>${series.label}</strong> · ${typeLabel}`;
+    row.appendChild(swatches);
+    row.appendChild(label);
+    legendEl.appendChild(row);
+  }
+}
+
+function updateModSummary(seriesList){
+  if (!modSummaryEl) return;
+  const baseline = seriesList.find((s) => s.type === 'baseline');
+  const active = seriesList.find((s) => s.type === 'active');
+  if (!active) {
+    modSummaryEl.textContent = 'Active modification: none (baseline parameters in use).';
+    return;
+  }
+  const ratioK1 = baseline ? active.derived.k1Eff / baseline.derived.k1Eff : 1;
+  const ratioB = baseline ? active.derived.bEff / baseline.derived.bEff : 1;
+  modSummaryEl.textContent = `${active.label}: k1'=${active.derived.k1Eff.toExponential(3)} (${ratioK1.toFixed(2)}×), b'=${active.derived.bEff.toExponential(3)} (${ratioB.toFixed(2)}×), β'=${active.derived.betaEff.toFixed(3)}.`;
+}
+
 // ---------- Engine ----------
 let needUpdate = true;
 function requestUpdate(){ needUpdate = true; }
+
+window.addEventListener('storage', () => requestUpdate());
+window.addEventListener('focus', () => requestUpdate());
 
 function getVals(){
   return {
     pol: gNum('pol'), rec: gNum('rec'), G: gNum('G'),
     k1: gNum('k1'), k2: gNum('k2'), kN: gNum('kN'), kP: gNum('kP'), b: gNum('b'), KmP: gNum('KmP'),
-    N0: gNum('N0'), P0: gNum('P0'), mod_factor: gNum('mod'),
+    N0: gNum('N0'), P0: gNum('P0'),
     t_end_min: gNum('t_end'), dt_min: gNum('dt')
   };
 }
@@ -209,15 +310,40 @@ async function animate(){
   if (needUpdate) {
     needUpdate = false; setBusy(true);
     const t0 = performance.now();
-    const params = getVals();
-    const { N, P } = runSimulationPhysical(params);
-    // Display mapping: Prey (plotted) = 400 - N [nM], Predator = P [nM]
-    const Prey = N.map(v => 400 - v);
-    drawTimeSeries(Prey, P);
-    // Phase portrait uses raw N vs P to show state evolution
-    drawPhase(N, P);
+    const baseParams = getVals();
+    const variants = buildSimulationVariants(baseParams);
+
+    const seriesList = [];
+    let overlayIndex = 0;
+    for (const variant of variants){
+      const style = styleForVariant(variant, overlayIndex);
+      if (variant.type === 'overlay') overlayIndex++;
+      const arr = runSimulationPhysical(variant.params);
+      const len = arr.length / 2 | 0;
+      const rawN = Array.from(arr.slice(0, len));
+      const rawP = Array.from(arr.slice(len));
+      const prey = rawN.map((v) => 400 - v);
+      seriesList.push({
+        id: variant.id,
+        label: variant.label,
+        type: variant.type,
+        colors: style.colors,
+        lineDash: style.lineDash,
+        N: rawN,
+        P: rawP,
+        prey,
+        derived: variant.derived,
+      });
+    }
+
+    drawTimeSeries(seriesList);
+    drawPhase(seriesList);
+    renderLegend(seriesList);
+    updateModSummary(seriesList);
+
     const t1 = performance.now();
-    status.textContent = `calc+draw: ${(t1 - t0).toFixed(1)} ms | points: ${N.length}`;
+    const points = seriesList[0]?.N.length ?? 0;
+    status.textContent = `calc+draw: ${(t1 - t0).toFixed(1)} ms | series: ${seriesList.length} | points: ${points}`;
     setBusy(false);
   }
   requestAnimationFrame(animate);

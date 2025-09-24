@@ -3,7 +3,7 @@
 This document summarizes the work completed in this repository and provides guidance for future contributors (agents). Scope: entire repo.
 
 ## Project Overview
-A Rust + WebAssembly + Canvas web app to explore a DNA-based predator–prey oscillator. The model follows the Supplementary Information (SI) S3 (Eq. 3, 4) of the source paper, expressed in physical parameters directly relatable to experiments. The app helps plan and interpret experiments, including the effect of amino-acid modification to the template DNA (modeled as a multiplicative factor on k1).
+A Rust + WebAssembly + Canvas web app to explore a DNA-based predator–prey oscillator. The model follows the Supplementary Information (SI) S3 (Eq. 3, 4) of the source paper, expressed in physical parameters directly relatable to experiments. The app helps plan and interpret experiments, including the effect of amino-acid modification to the template DNA via the Modification Workbench (r_assoc / r_poly / r_nick mapping to effective k1 and b; the legacy mod_factor remains for backward compatibility only).
 
 ## Repository Layout
 - `crate/` — Rust WASM crate
@@ -15,12 +15,14 @@ A Rust + WebAssembly + Canvas web app to explore a DNA-based predator–prey osc
   - `index.html` — redirects to `/simulator/` (simulator is the homepage)
   - `equation.png` — equation image used by the simulator page
   - `core.js` — WASM wrapper exposing `initWasm()` and `runSimulationPhysical(params)`
+  - `modifications.js` — shared helpers for modification cards, storage, and effective parameter mapping
   - `simulator/` — Physical-Parameter Simulator (time series + phase plot)
     - `index.html`, `simulator.js`
   - `bifurcation/` — Parameter sweep and bifurcation plotting (P max/min)
     - `index.html`, `bifurcation.js`
   - `heatmap/` — 2D parameter heatmap (amplitude or period)
     - `index.html`, `heatmap.js`
+  - `workbench/` — Modification Workbench UI (design, overlays, state management)
 - `docs/plan.md` — Initial roadmap/design doc
 - `.gitignore` — ignores build artifacts (`crate/target/`, `web/pkg/`)
 - `netlify.toml`, `netlify-build.sh` — build config (wasm-pack) for deployment
@@ -29,7 +31,7 @@ A Rust + WebAssembly + Canvas web app to explore a DNA-based predator–prey osc
 - Physical ODE (Rust, WASM, JS)
   - `simulate_physical(pol, rec, G, k1, k2, k_n, k_p, b, km_p, N0, P0, mod_factor, t_end_min, dt_min)`
     - Implements SI S3 Eq. (3,4) with Runge–Kutta (fixed step)
-    - `k1_eff = k1 * mod_factor` to capture amino-acid modification effects
+    - UI computes effective `k1'` / `b'` via the workbench; `mod_factor` remains as a passthrough for historical data
     - Returns `[N_series..., P_series...]` (nM)
   - `web/core.js` exposes a reusable `runSimulationPhysical(params)` for all pages
 
@@ -37,22 +39,25 @@ A Rust + WebAssembly + Canvas web app to explore a DNA-based predator–prey osc
   - Simulator (`/simulator/`)
     - Physical parameters sliders/inputs, time series and phase portrait
     - Explanation section (with `web/equation.png`)
-    - Cross-page nav (Simulator, Bifurcation, Heatmap)
-    - Display fix: time-series “Prey” is plotted as `400 − N` (baseline ~400 nM), while phase uses raw `N` vs `P`
+    - Cross-page nav (Simulator, Bifurcation, Heatmap, Workbench)
+    - Displays baseline plus active/overlay modification trajectories; time-series “Prey” is plotted as `400 − N` while the phase plot uses raw `N` vs `P`
   - Bifurcation (`/bifurcation/`)
     - Sweep one parameter across a range; after transients (tail window), compute `P` min/max and plot them
-    - UI for parameter/range/steps, simulation window, and base parameters
+    - Supports baseline, active, and overlay modification series with per-series color coding
     - Preset: “Birth of oscillations (G sweep)” — reproduces SI Fig. S11-like behavior
   - Heatmap (`/heatmap/`)
     - Sweep two parameters over a grid; evaluate either amplitude (P max−min) or period (mean peak spacing)
-    - Turbo colormap rendering with legend
+    - Turbo colormap rendering with legend and a selector to toggle baseline/active/overlay grids and Δ vs baseline views
     - Presets:
-      - “Amino-acid modification (period)”: X=`G`, Y=`mod_factor`, metric=`period`
+      - “Amino-acid modification (period)”: X=`G`, Y=`k1`, metric=`period` (active modification maps k1/b internally)
       - “Enzyme balance & stability (amplitude)”: X=`G`, Y=`rec`, metric=`amplitude`
+  - Modification Workbench (`/workbench/`)
+    - Manage modification cards (r_assoc / r_poly / r_nick, ΔΔG inputs, linker metadata)
+    - Computes effective parameters, sets active/overlay selections, and exports state via localStorage for other pages
 
 - Defaults and Presets (from SI Table S5, PP1 optimized / Fig.2 & S11)
   - Common base values used in pages and presets:
-    - `pol=3.7`, `rec=32.5`, `G=150`, `k1=0.0020`, `k2=0.0031`, `kN=0.0210`, `kP=0.0047`, `b=0.000048`, `KmP=34`, `N0=10`, `P0=10`, `mod_factor=1.0`
+    - `pol=3.7`, `rec=32.5`, `G=150`, `k1=0.0020`, `k2=0.0031`, `kN=0.0210`, `kP=0.0047`, `b=0.000048`, `KmP=34`, `N0=10`, `P0=10`
     - Typical windows: `t_end=2000–3000` min, `dt=0.5` min, tail window `50–60%`
 
 ## Build & Run

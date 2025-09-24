@@ -1,20 +1,30 @@
 import { initWasm, runSimulationPhysical } from "../core.js";
+import { buildSimulationVariants } from "../modifications.js";
 
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d', { alpha:false });
 const status = document.getElementById('status');
 const runBtn = document.getElementById('runBtn');
+const variantSelect = document.getElementById('variantSelect');
+if (variantSelect) variantSelect.disabled = true;
 
 const ids = [
   'xParam','xMin','xMax','xSteps',
   'yParam','yMin','yMax','ySteps',
   'metric','t_end','dt','tail',
-  'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0','mod_factor'
+  'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0'
 ];
 const el = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 const presetSel = document.getElementById('preset');
 const applyPresetBtn = document.getElementById('applyPreset');
 const presetDesc = document.getElementById('presetDesc');
+
+const BASELINE_COLOR = '#1d4ed8';
+const ACTIVE_COLOR = '#ef4444';
+const OVERLAY_COLORS = ['#9333ea', '#22c55e', '#f97316', '#0ea5e9'];
+
+let variantResults = [];
+let gridContext = null;
 
 function num(id){ return parseFloat(el[id].value); }
 
@@ -31,14 +41,23 @@ function baseParams(){
     KmP: num('KmP'),
     N0: num('N0'),
     P0: num('P0'),
-    mod_factor: num('mod_factor'),
     t_end_min: num('t_end'),
     dt_min: num('dt'),
   };
 }
 
+function colorForVariant(variant, overlayIdx){
+  if (variant.type === 'baseline') return BASELINE_COLOR;
+  if (variant.type === 'active') return ACTIVE_COLOR;
+  return OVERLAY_COLORS[overlayIdx % OVERLAY_COLORS.length];
+}
+
 runBtn.addEventListener('click', async () => {
   runBtn.disabled = true;
+  variantSelect.disabled = true;
+  variantSelect.innerHTML = '';
+  variantResults = [];
+  gridContext = null;
   status.textContent = 'Running grid...';
   await initWasm();
 
@@ -54,51 +73,162 @@ runBtn.addEventListener('click', async () => {
   const yMin = num('yMin'), yMax = num('yMax');
   const nx = Math.max(2, Math.floor(num('xSteps')));
   const ny = Math.max(2, Math.floor(num('ySteps')));
-  const metric = el.metric.value; // 'amplitude' | 'period'
+  const metric = el.metric.value;
   const tailPct = Math.min(100, Math.max(1, Math.floor(num('tail'))));
 
-  const grid = new Float32Array(nx * ny).fill(NaN);
   const bp = baseParams();
+  const previewParams = { ...bp, [xParam]: xMin, [yParam]: yMin };
+  const previewVariants = buildSimulationVariants(previewParams);
+  const variantStyles = new Map();
+  let overlayIdx = 0;
+  for (const variant of previewVariants){
+    variantStyles.set(variant.id, colorForVariant(variant, overlayIdx));
+    if (variant.type === 'overlay') overlayIdx++;
+  }
+
+  const variantMap = new Map();
 
   for (let j=0;j<ny;j++){
     const yVal = yMin + (yMax - yMin) * (j / (ny - 1));
     for (let i=0;i<nx;i++){
       const xVal = xMin + (xMax - xMin) * (i / (nx - 1));
-      const params = { ...bp, [xParam]: xVal, [yParam]: yVal };
-      const { P } = runSimulationPhysical(params);
-      const tail = Math.max(3, Math.floor(P.length * (tailPct/100)));
-      const start = P.length - tail;
-      let val = NaN;
-      if (metric === 'amplitude'){
-        let pmin = +Infinity, pmax = -Infinity;
-        for (let k=start;k<P.length;k++){ const v=P[k]; if(v<pmin) pmin=v; if(v>pmax) pmax=v; }
-        val = pmax - pmin;
-      } else if (metric === 'period') {
-        const peaks = [];
-        // simple peak detection
-        for (let k=start+1;k<P.length-1;k++){
-          const a=P[k-1], b=P[k], c=P[k+1];
-          if (b>a && b>c) peaks.push(k);
+      const paramsBase = { ...bp, [xParam]: xVal, [yParam]: yVal };
+      const variants = buildSimulationVariants(paramsBase);
+      for (const variant of variants){
+        if (!variantStyles.has(variant.id)){
+          variantStyles.set(variant.id, colorForVariant(variant, overlayIdx));
+          if (variant.type === 'overlay') overlayIdx++;
         }
-        if (peaks.length >= 2){
-          let sum = 0;
-          for (let m=1;m<peaks.length;m++) sum += (peaks[m] - peaks[m-1]);
-          const meanStep = sum / (peaks.length - 1);
-          val = meanStep * bp.dt_min; // minutes
+        let entry = variantMap.get(variant.id);
+        if (!entry){
+          entry = {
+            id: variant.id,
+            label: variant.label,
+            type: variant.type,
+            color: variantStyles.get(variant.id),
+            grid: new Float32Array(nx * ny).fill(NaN),
+            derived: variant.derived,
+          };
+          variantMap.set(variant.id, entry);
         }
+        const { P } = runSimulationPhysical(variant.params);
+        const tail = Math.max(3, Math.floor(P.length * (tailPct/100)));
+        const start = P.length - tail;
+        const val = evaluateMetric(P, start, metric, variant.params.dt_min);
+        entry.grid[j*nx + i] = Number.isFinite(val) ? val : NaN;
       }
-      grid[j*nx + i] = isFinite(val) ? val : NaN;
     }
     if ((j%2)===0) {
       status.textContent = `Running grid... ${j+1}/${ny}`;
-      await new Promise(r => setTimeout(r));
+      await new Promise((r) => setTimeout(r));
     }
   }
 
-  drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xParam, yParam, metric);
-  status.textContent = `Done. grid=${nx}x${ny}`;
+  const variants = Array.from(variantMap.values()).sort((a, b) => {
+    if (a.type === b.type) return a.label.localeCompare(b.label);
+    if (a.type === 'baseline') return -1;
+    if (b.type === 'baseline') return 1;
+    if (a.type === 'active') return -1;
+    if (b.type === 'active') return 1;
+    return a.label.localeCompare(b.label);
+  });
+
+  const baseline = variants.find((v) => v.type === 'baseline');
+  if (baseline){
+    for (const variant of variants){
+      if (variant === baseline) continue;
+      const delta = new Float32Array(nx * ny);
+      for (let k=0;k<delta.length;k++){
+        const val = variant.grid[k];
+        const baseVal = baseline.grid[k];
+        delta[k] = Number.isFinite(val) && Number.isFinite(baseVal) ? (val - baseVal) : NaN;
+      }
+      variant.deltaGrid = delta;
+    }
+  }
+
+  variantResults = variants;
+  gridContext = { nx, ny, xMin, xMax, yMin, yMax, xParam, yParam, metric };
+
+  populateVariantSelect(variants);
+  renderHeatmapSelection();
+
   runBtn.disabled = false;
 });
+
+function evaluateMetric(series, startIdx, metric, dt){
+  const len = series.length;
+  if (len <= startIdx) return NaN;
+  if (metric === 'amplitude'){
+    let pmin = +Infinity, pmax = -Infinity;
+    for (let i=startIdx;i<len;i++){
+      const v = series[i];
+      if (v < pmin) pmin = v;
+      if (v > pmax) pmax = v;
+    }
+    return pmax - pmin;
+  }
+  if (metric === 'period'){
+    const peaks = [];
+    for (let i=Math.max(startIdx+1,1); i<len-1; i++){
+      const a = series[i-1], b = series[i], c = series[i+1];
+      if (b > a && b > c) peaks.push(i);
+    }
+    if (peaks.length >= 2){
+      let sum = 0;
+      for (let i=1;i<peaks.length;i++) sum += (peaks[i] - peaks[i-1]);
+      const meanStep = sum / (peaks.length - 1);
+      return meanStep * (dt || 1);
+    }
+  }
+  return NaN;
+}
+
+function populateVariantSelect(variants){
+  if (!variantSelect) return;
+  variantSelect.innerHTML = '';
+  if (!variants.length){
+    variantSelect.disabled = true;
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  const activeVariant = variants.find((v) => v.type === 'active');
+  let defaultValue = null;
+  if (activeVariant && activeVariant.deltaGrid) defaultValue = `${activeVariant.id}::delta`;
+  else if (activeVariant) defaultValue = `${activeVariant.id}::raw`;
+  else defaultValue = `${variants[0].id}::raw`;
+
+  for (const variant of variants){
+    const rawValue = `${variant.id}::raw`;
+    const opt = document.createElement('option');
+    opt.value = rawValue;
+    opt.textContent = `${variant.label} (${variant.type})`;
+    frag.appendChild(opt);
+    if (variant.deltaGrid){
+      const deltaOpt = document.createElement('option');
+      deltaOpt.value = `${variant.id}::delta`;
+      deltaOpt.textContent = `${variant.label} Δ vs baseline`;
+      frag.appendChild(deltaOpt);
+    }
+  }
+  variantSelect.appendChild(frag);
+  variantSelect.disabled = false;
+  if (defaultValue) variantSelect.value = defaultValue;
+  else variantSelect.selectedIndex = 0;
+}
+
+function renderHeatmapSelection(){
+  if (!gridContext || !variantResults.length) return;
+  const value = variantSelect.value || `${variantResults[0].id}::raw`;
+  const [id, mode] = value.split('::');
+  let variant = variantResults.find((v) => v.id === id);
+  if (!variant) variant = variantResults[0];
+  const useDelta = mode === 'delta' && variant.deltaGrid;
+  const grid = useDelta ? variant.deltaGrid : variant.grid;
+  const info = { label: variant.label, type: variant.type, mode: useDelta ? 'delta' : 'raw' };
+  drawHeatmap(grid, gridContext.nx, gridContext.ny, gridContext.xMin, gridContext.xMax, gridContext.yMin, gridContext.yMax, gridContext.xParam, gridContext.yParam, gridContext.metric, info);
+  status.textContent = `Displaying ${variant.label} (${variant.type}) ${useDelta ? 'Δ vs baseline' : gridContext.metric}.`;
+}
 
 // ---------- Defaults & Presets ----------
 function setVal(id, v){ const e=document.getElementById(id); if(e) e.value = String(v); }
@@ -116,7 +246,6 @@ function initDefaults(){
   setVal('KmP', 34);
   setVal('N0', 10);
   setVal('P0', 10);
-  setVal('mod_factor', 1.0);
 
   // Reasonable simulation window
   setVal('t_end', 3000);
@@ -125,7 +254,7 @@ function initDefaults(){
 
   // Default grid (G vs k1)
   setVal('xParam', 'G'); setVal('xMin', 80); setVal('xMax', 250); setVal('xSteps', 20);
-  setVal('yParam', 'mod_factor'); setVal('yMin', 0.4); setVal('yMax', 1.0); setVal('ySteps', 15);
+  setVal('yParam', 'k1'); setVal('yMin', 0.0015); setVal('yMax', 0.004); setVal('ySteps', 15);
   setVal('metric', 'period');
 }
 
@@ -134,14 +263,14 @@ applyPresetBtn.addEventListener('click', () => {
   if (v === 'mod') {
     // アミノ酸修飾の影響（周期）
     initDefaults();
-    presetDesc.innerHTML = 'アミノ酸修飾（mod\_factor）と鋳型濃度 G の関係で、周期（Pピーク間平均）の変化を可視化します。';
+    presetDesc.innerHTML = '修飾カードで調整された有効 k₁ を想定し、鋳型濃度 G と k₁ の組み合わせで周期がどう変化するかを可視化します。アクティブな修飾は自動で反映されます。';
   } else if (v === 'balance') {
     // 酵素バランスと安定性（振幅）
     // Base
     setVal('pol', 3.7); setVal('k1', 0.0020);
     setVal('rec', 32.5); setVal('G', 150);
     setVal('k2', 0.0031); setVal('kN', 0.0210); setVal('kP', 0.0047); setVal('b', 0.000048);
-    setVal('KmP', 34); setVal('N0', 10); setVal('P0', 10); setVal('mod_factor', 1.0);
+    setVal('KmP', 34); setVal('N0', 10); setVal('P0', 10);
     // Window
     setVal('t_end', 3000); setVal('dt', 0.5); setVal('tail', 50);
     // Grid: G vs rec, amplitude
@@ -155,8 +284,9 @@ applyPresetBtn.addEventListener('click', () => {
 });
 
 initDefaults();
+if (variantSelect) variantSelect.addEventListener('change', renderHeatmapSelection);
 
-function drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, metric){
+function drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, metric, variantInfo){
   const W = cv.width, H = cv.height;
   const L = 80, R = 120, T = 50, B = 70; // leave room for legend on right
   ctx.save(); ctx.fillStyle = '#fff'; ctx.fillRect(0,0,W,H); ctx.restore();
@@ -171,6 +301,9 @@ function drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, metri
   if (!Number.isFinite(dmin) || !Number.isFinite(dmax) || dmax === dmin){
     dmin = 0; dmax = 1;
   }
+
+  const metricLabel = variantInfo && variantInfo.mode === 'delta' ? `Δ${metric}` : metric;
+  const titleLabel = variantInfo ? `${variantInfo.label} ${variantInfo.mode === 'delta' ? 'Δ vs baseline' : ''}`.trim() : 'Baseline';
 
   // Axes mapping
   const xOf = (v) => L + ((v - xMin)/(xMax - xMin || 1)) * (W - L - R);
@@ -212,9 +345,9 @@ function drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, metri
   ctx.strokeStyle = '#334155'; ctx.strokeRect(lgX, lgY, lgW, lgH);
   ctx.fillStyle = '#0f172a'; ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText(`${metric} max: ${roundSmart(dmax)}`, lgX + lgW + 8, lgY);
+  ctx.fillText(`${metricLabel} max: ${roundSmart(dmax)}`, lgX + lgW + 8, lgY);
   ctx.textBaseline = 'bottom';
-  ctx.fillText(`${metric} min: ${roundSmart(dmin)}`, lgX + lgW + 8, lgY + lgH);
+  ctx.fillText(`${metricLabel} min: ${roundSmart(dmin)}`, lgX + lgW + 8, lgY + lgH);
 
   // Axis ticks (simple)
   ctx.fillStyle = '#111827'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
@@ -223,7 +356,7 @@ function drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, metri
   ctx.save(); ctx.translate(16, T + (H - T - B)/2); ctx.rotate(-Math.PI/2);
   ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(`${yLabel}`, 0, 0); ctx.restore();
   ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.font = '16px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-  ctx.fillText('Parameter Heatmap', L + (W - L - R)/2, 12);
+  ctx.fillText(`Parameter Heatmap — ${titleLabel}`, L + (W - L - R)/2, 12);
 }
 
 function roundSmart(v){ const a=Math.abs(v); if(a>=100) return Math.round(v); if(a>=10) return Math.round(v*10)/10; return Math.round(v*100)/100; }

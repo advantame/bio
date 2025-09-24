@@ -1,0 +1,166 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Modification Workbench — PP-oscillation</title>
+<link rel="stylesheet" href="../styles/base.css" onerror="this.remove()">
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; margin: 16px; background:#f8fafc; }
+  .wrap { display:flex; flex-direction:column; gap:16px; }
+  .card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:18px; box-shadow:0 1px 2px rgba(15,23,42,0.06); }
+  .nav { display:flex; gap:12px; flex-wrap:wrap; padding:10px 12px; border:1px solid #e2e8f0; border-radius:12px; background:#fff; }
+  .nav a { color:#2563eb; text-decoration:none; }
+  .nav a:hover { text-decoration:underline; }
+  .layout { display:grid; grid-template-columns: 320px 1fr; gap:18px; }
+  @media (max-width:1100px) { .layout { grid-template-columns: 1fr; } }
+
+  .list { display:flex; flex-direction:column; gap:10px; }
+  .mod-card { border:1px solid #cbd5e1; border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; background:#f8fafc; cursor:pointer; transition: background 0.15s ease; }
+  .mod-card.active { border-color:#2563eb; background:#e0ecff; }
+  .mod-card .name { font-weight:600; color:#0f172a; }
+  .mod-card .meta { font-size:0.85rem; color:#475569; display:flex; gap:10px; flex-wrap:wrap; }
+  .mod-actions { display:flex; gap:8px; margin-top:12px; }
+  button { border-radius:10px; border:1px solid #d4d4d8; background:#f9fafb; padding:8px 12px; cursor:pointer; font-size:0.95rem; }
+  button.primary { background:#2563eb; color:#fff; border-color:#2563eb; }
+  button.danger { color:#dc2626; border-color:#fecaca; background:#fef2f2; }
+  button:disabled { opacity:0.6; cursor:not-allowed; }
+
+  .section { display:flex; flex-direction:column; gap:16px; }
+  .section h3 { margin:0; font-size:1.15rem; color:#0f172a; }
+  form { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:12px 16px; }
+  label { font-size:0.85rem; color:#475569; display:flex; flex-direction:column; gap:4px; }
+  input[type="text"], input[type="number"], select { padding:8px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font-size:0.95rem; color:#0f172a; }
+  .derived-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:10px 16px; }
+  .derived-item { background:#f1f5f9; border-radius:10px; padding:10px 12px; }
+  .derived-item h4 { margin:0 0 4px; font-size:0.9rem; color:#0f172a; }
+  .derived-item p { margin:0; font-size:0.9rem; color:#334155; }
+  .badge { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background:#e2e8f0; color:#0f172a; font-size:0.82rem; }
+  .warn { color:#b45309; }
+  .warn strong { color:#b45309; }
+  textarea { padding:8px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit; resize:vertical; }
+
+  .subsection { border-top:1px solid #e2e8f0; padding-top:16px; }
+  .mini-table { width:100%; border-collapse:collapse; font-size:0.88rem; }
+  .mini-table th, .mini-table td { border-bottom:1px solid #e2e8f0; padding:8px; text-align:left; }
+  .mini-table tr:last-child td { border-bottom:none; }
+
+  .status-banner { padding:10px 12px; border-radius:10px; background:#e0f2fe; border:1px solid #bae6fd; color:#0c4a6e; font-size:0.9rem; }
+
+  .accordion { display:flex; flex-direction:column; gap:12px; }
+  .accordion details { border:1px solid #cbd5e1; border-radius:12px; background:#fff; padding:12px 14px; }
+  .accordion summary { cursor:pointer; font-weight:600; color:#0f172a; }
+  .accordion summary::-webkit-details-marker { display:none; }
+
+  .toggle-row { display:flex; gap:12px; align-items:center; }
+  .toggle-row input[type="checkbox"] { width:18px; height:18px; }
+
+  .note { font-size:0.85rem; color:#64748b; }
+</style>
+<div class="wrap">
+  <div class="nav">
+    <a href="../">Home</a>
+    <span>·</span>
+    <a href="../simulator/">Simulator</a>
+    <span>·</span>
+    <a href="../bifurcation/">Bifurcation</a>
+    <span>·</span>
+    <a href="../heatmap/">Heatmap</a>
+    <span>·</span>
+    <strong>Modification Workbench</strong>
+  </div>
+
+  <div class="status-banner" id="statusBanner" hidden></div>
+
+  <div class="layout">
+    <div class="card">
+      <div class="section">
+        <h3>Library</h3>
+        <div class="list" id="modList"></div>
+        <div class="mod-actions">
+          <button id="addModBtn" class="primary">New Modification</button>
+          <button id="deleteModBtn" class="danger" disabled>Delete</button>
+        </div>
+        <p class="note">Modifications are stored locally and shared across pages. Baseline corresponds to the unmodified reference.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section">
+        <h3>Design</h3>
+        <form id="modForm">
+          <label>Label
+            <input id="label" type="text" placeholder="e.g. Lys-Gly linker" required>
+          </label>
+          <label>Amino Acid
+            <input id="amino" type="text" placeholder="Lys / Arg / custom">
+          </label>
+          <label>Temperature [°C]
+            <input id="temperature" type="number" value="37" step="0.1">
+          </label>
+          <label>ΔΔG_assoc [kcal/mol]
+            <input id="deltaAssoc" type="number" step="0.1" placeholder="optional">
+          </label>
+          <label>r_assoc (exp)
+            <input id="rAssoc" type="number" step="0.01" min="0" value="1">
+          </label>
+          <label>r_poly
+            <input id="rPoly" type="number" step="0.01" min="0" value="1">
+          </label>
+          <label>r_nick
+            <input id="rNick" type="number" step="0.01" min="0" value="1">
+          </label>
+          <label>ΔΔG_fold [kcal/mol]
+            <input id="deltaFold" type="number" step="0.1" placeholder="optional">
+          </label>
+          <label>Linker length [atoms]
+            <input id="linkerLength" type="number" min="0" step="1" placeholder="optional">
+          </label>
+          <label>Linker polarity
+            <select id="linkerPolarity">
+              <option value="">—</option>
+              <option value="hydrophilic">Hydrophilic</option>
+              <option value="hydrophobic">Hydrophobic</option>
+              <option value="neutral">Neutral</option>
+            </select>
+          </label>
+          <label>Notes
+            <textarea id="notes" rows="2" placeholder="Any remarks"></textarea>
+          </label>
+        </form>
+        <div class="toggle-row">
+          <input type="checkbox" id="hairpinToggle">
+          <label for="hairpinToggle" style="margin:0;">Apply hairpin folding correction</label>
+        </div>
+        <div class="toggle-row">
+          <input type="checkbox" id="overlayToggle">
+          <label for="overlayToggle" style="margin:0;">Include in overlay comparisons</label>
+        </div>
+        <div class="mod-actions">
+          <button id="setActiveBtn" class="primary" disabled>Set as active</button>
+          <button id="clearActiveBtn">Clear active</button>
+        </div>
+      </div>
+
+      <div class="section subsection">
+        <h3>Derived Parameters</h3>
+        <div class="derived-grid" id="derivedGrid"></div>
+        <p class="note" id="warningText"></p>
+      </div>
+
+      <div class="section subsection">
+        <h3>Simulate / Map</h3>
+        <div class="accordion">
+          <details open>
+            <summary>Current bindings</summary>
+            <p class="note">The active modification will automatically retune <code>k1</code> and <code>b</code> on the Simulator, Bifurcation, and Heatmap pages. Overlays will render alongside the baseline.</p>
+            <table class="mini-table" id="bindingTable"></table>
+          </details>
+          <details>
+            <summary>Export</summary>
+            <p class="note">Export and import JSON will arrive in a later update. For now, data is preserved in-browser.</p>
+          </details>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="./workbench.js"></script>
