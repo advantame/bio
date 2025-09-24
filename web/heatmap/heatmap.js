@@ -1,20 +1,37 @@
 import { initWasm, runSimulationPhysical } from "../core.js";
+import {
+  initModificationStore,
+  subscribe as subscribeModificationStore,
+  getActiveModification,
+  listModifications,
+  getAnalysisPrefs,
+} from "../modifications/store.js";
+import {
+  DEFAULT_EFFECT,
+  computeEffectFromModification,
+  applyEffectToParams,
+} from "../modifications/apply.js";
 
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d', { alpha:false });
 const status = document.getElementById('status');
 const runBtn = document.getElementById('runBtn');
+const BASELINE_ID = 'mod-default';
 
 const ids = [
   'xParam','xMin','xMax','xSteps',
   'yParam','yMin','yMax','ySteps',
   'metric','t_end','dt','tail',
-  'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0','mod_factor'
+  'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0'
 ];
 const el = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 const presetSel = document.getElementById('preset');
 const applyPresetBtn = document.getElementById('applyPreset');
 const presetDesc = document.getElementById('presetDesc');
+
+let modificationEffect = { ...DEFAULT_EFFECT };
+let analysisPrefs = { showBaseline: true, showDelta: true, overlays: [] };
+let modificationsById = new Map();
 
 function num(id){ return parseFloat(el[id].value); }
 
@@ -31,7 +48,6 @@ function baseParams(){
     KmP: num('KmP'),
     N0: num('N0'),
     P0: num('P0'),
-    mod_factor: num('mod_factor'),
     t_end_min: num('t_end'),
     dt_min: num('dt'),
   };
@@ -39,7 +55,9 @@ function baseParams(){
 
 runBtn.addEventListener('click', async () => {
   runBtn.disabled = true;
-  status.textContent = 'Running grid...';
+  const effectSummary = summarizeEffect(modificationEffect);
+  const effectNote = effectSummary.replace(/^ \|?\s*/, '');
+  status.textContent = `Running grid... ${effectNote}`;
   await initWasm();
 
   const xParam = el.xParam.value;
@@ -54,49 +72,67 @@ runBtn.addEventListener('click', async () => {
   const yMin = num('yMin'), yMax = num('yMax');
   const nx = Math.max(2, Math.floor(num('xSteps')));
   const ny = Math.max(2, Math.floor(num('ySteps')));
-  const metric = el.metric.value; // 'amplitude' | 'period'
+  const metric = el.metric.value;
   const tailPct = Math.min(100, Math.max(1, Math.floor(num('tail'))));
 
-  const grid = new Float32Array(nx * ny).fill(NaN);
-  const bp = baseParams();
+  const cfg = {
+    xParam,
+    yParam,
+    xMin,
+    xMax,
+    yMin,
+    yMax,
+    nx,
+    ny,
+    metric,
+    tailFraction: tailPct / 100,
+    baseParams: baseParams(),
+  };
 
-  for (let j=0;j<ny;j++){
-    const yVal = yMin + (yMax - yMin) * (j / (ny - 1));
-    for (let i=0;i<nx;i++){
-      const xVal = xMin + (xMax - xMin) * (i / (nx - 1));
-      const params = { ...bp, [xParam]: xVal, [yParam]: yVal };
-      const { P } = runSimulationPhysical(params);
-      const tail = Math.max(3, Math.floor(P.length * (tailPct/100)));
-      const start = P.length - tail;
-      let val = NaN;
-      if (metric === 'amplitude'){
-        let pmin = +Infinity, pmax = -Infinity;
-        for (let k=start;k<P.length;k++){ const v=P[k]; if(v<pmin) pmin=v; if(v>pmax) pmax=v; }
-        val = pmax - pmin;
-      } else if (metric === 'period') {
-        const peaks = [];
-        // simple peak detection
-        for (let k=start+1;k<P.length-1;k++){
-          const a=P[k-1], b=P[k], c=P[k+1];
-          if (b>a && b>c) peaks.push(k);
-        }
-        if (peaks.length >= 2){
-          let sum = 0;
-          for (let m=1;m<peaks.length;m++) sum += (peaks[m] - peaks[m-1]);
-          const meanStep = sum / (peaks.length - 1);
-          val = meanStep * bp.dt_min; // minutes
-        }
-      }
-      grid[j*nx + i] = isFinite(val) ? val : NaN;
-    }
-    if ((j%2)===0) {
-      status.textContent = `Running grid... ${j+1}/${ny}`;
-      await new Promise(r => setTimeout(r));
-    }
+  const activeLabel = modificationEffect.id ? (modificationEffect.label || 'Active') : 'Baseline';
+  const activeGrid = await computeGridForEffect(modificationEffect, activeLabel, cfg, effectNote);
+
+  let baselineGrid = null;
+  const hasSeparateBaseline = analysisPrefs.showBaseline && modificationEffect.id !== null;
+  if (hasSeparateBaseline) {
+    baselineGrid = await computeGridForEffect(DEFAULT_EFFECT, 'Baseline', cfg, effectNote);
   }
 
-  drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xParam, yParam, metric);
-  status.textContent = `Done. grid=${nx}x${ny}`;
+  const deltaEnabled = Boolean(hasSeparateBaseline && analysisPrefs.showDelta && baselineGrid);
+  const renderGrid = deltaEnabled && baselineGrid
+    ? computeDeltaGrid(activeGrid, baselineGrid)
+    : activeGrid;
+
+  const overlaySummaries = [];
+  const referenceGrid = baselineGrid && analysisPrefs.showBaseline ? baselineGrid : activeGrid;
+  const overlayReferenceLabel = baselineGrid && analysisPrefs.showBaseline ? 'baseline' : 'active';
+  const overlayIds = analysisPrefs.overlays || [];
+  for (let idx = 0; idx < overlayIds.length; idx++) {
+    const id = overlayIds[idx];
+    if (!id || id === modificationEffect.id) continue;
+    const mod = modificationsById.get(id);
+    if (!mod) continue;
+    const effect = computeEffectFromModification(mod);
+    const label = mod.label || id;
+    const overlayGrid = await computeGridForEffect(effect, label, cfg, effectNote);
+    const stats = summarizeGridDifference(overlayGrid, referenceGrid);
+    overlaySummaries.push({ label, stats });
+  }
+
+  drawHeatmap(renderGrid, nx, ny, xMin, xMax, yMin, yMax, xParam, yParam, deltaEnabled ? `Δ ${metric}` : metric);
+
+  const parts = [`Done. grid=${nx}x${ny}`, `metric=${metric}`, effectNote];
+  if (hasSeparateBaseline) parts.push('baseline overlay');
+  if (deltaEnabled) parts.push('render=Δ(active-baseline)');
+  if (overlaySummaries.length) {
+    const overlayText = overlaySummaries.map(({ label, stats }) => {
+      const meanText = formatSigned(stats.mean, 2);
+      const spanText = `${formatSigned(stats.min, 2)}…${formatSigned(stats.max, 2)}`;
+      return `${label}: meanΔ=${meanText}, range=${spanText}`;
+    }).join('; ');
+    parts.push(`overlays vs ${overlayReferenceLabel}: ${overlayText}`);
+  }
+  status.textContent = parts.join(' | ');
   runBtn.disabled = false;
 });
 
@@ -116,7 +152,6 @@ function initDefaults(){
   setVal('KmP', 34);
   setVal('N0', 10);
   setVal('P0', 10);
-  setVal('mod_factor', 1.0);
 
   // Reasonable simulation window
   setVal('t_end', 3000);
@@ -125,7 +160,7 @@ function initDefaults(){
 
   // Default grid (G vs k1)
   setVal('xParam', 'G'); setVal('xMin', 80); setVal('xMax', 250); setVal('xSteps', 20);
-  setVal('yParam', 'mod_factor'); setVal('yMin', 0.4); setVal('yMax', 1.0); setVal('ySteps', 15);
+  setVal('yParam', 'k1'); setVal('yMin', 0.0012); setVal('yMax', 0.0032); setVal('ySteps', 16);
   setVal('metric', 'period');
 }
 
@@ -134,14 +169,14 @@ applyPresetBtn.addEventListener('click', () => {
   if (v === 'mod') {
     // アミノ酸修飾の影響（周期）
     initDefaults();
-    presetDesc.innerHTML = 'アミノ酸修飾（mod\_factor）と鋳型濃度 G の関係で、周期（Pピーク間平均）の変化を可視化します。';
+    presetDesc.innerHTML = 'Workbench で設計した修飾カードをオーバーレイし、k1 掃引と鋳型濃度 G の組み合わせが周波数にどう影響するかを比較するベース設定です。Δ表示を有効にすると基準条件との差分を即座に確認できます。';
   } else if (v === 'balance') {
     // 酵素バランスと安定性（振幅）
     // Base
     setVal('pol', 3.7); setVal('k1', 0.0020);
     setVal('rec', 32.5); setVal('G', 150);
     setVal('k2', 0.0031); setVal('kN', 0.0210); setVal('kP', 0.0047); setVal('b', 0.000048);
-    setVal('KmP', 34); setVal('N0', 10); setVal('P0', 10); setVal('mod_factor', 1.0);
+    setVal('KmP', 34); setVal('N0', 10); setVal('P0', 10);
     // Window
     setVal('t_end', 3000); setVal('dt', 0.5); setVal('tail', 50);
     // Grid: G vs rec, amplitude
@@ -154,7 +189,156 @@ applyPresetBtn.addEventListener('click', () => {
   }
 });
 
+await initModificationStore();
+modificationsById = new Map(listModifications().map((m) => [m.id, m]));
+updateAnalysisPrefsFromSnapshot(getAnalysisPrefs());
+updateModificationEffect(getActiveModification());
+subscribeModificationStore((snapshot) => {
+  modificationsById = new Map((snapshot.modifications || []).map((m) => [m.id, m]));
+  const mod = modificationsById.get(snapshot.activeId) || null;
+  updateModificationEffect(mod);
+  updateAnalysisPrefsFromSnapshot(snapshot.analysisPrefs);
+});
+
 initDefaults();
+
+async function computeGridForEffect(effect, label, cfg, effectNote) {
+  const {
+    xParam, yParam,
+    xMin, xMax,
+    yMin, yMax,
+    nx, ny,
+    metric,
+    tailFraction,
+    baseParams,
+  } = cfg;
+  const grid = new Float32Array(nx * ny).fill(NaN);
+  const xDenom = Math.max(nx - 1, 1);
+  const yDenom = Math.max(ny - 1, 1);
+  for (let j = 0; j < ny; j++) {
+    const yVal = yMin + (yMax - yMin) * (j / yDenom);
+    for (let i = 0; i < nx; i++) {
+      const xVal = xMin + (xMax - xMin) * (i / xDenom);
+      const paramsBase = { ...baseParams, [xParam]: xVal, [yParam]: yVal };
+      const params = applyEffectToParams(paramsBase, effect);
+      const { P } = runSimulationPhysical(params);
+      const tailCount = Math.max(3, Math.floor(P.length * tailFraction));
+      const val = evaluateMetric(P, metric, tailCount, baseParams.dt_min);
+      grid[j * nx + i] = Number.isFinite(val) ? val : NaN;
+    }
+    if ((j % 2) === 0) {
+      status.textContent = `Running grid (${label}) ${j + 1}/${ny} | ${effectNote}`;
+      await new Promise((r) => setTimeout(r));
+    }
+  }
+  return grid;
+}
+
+function evaluateMetric(series, metric, tailCount, dt) {
+  if (!series || series.length === 0) return NaN;
+  const start = Math.max(0, series.length - tailCount);
+  if (metric === 'amplitude') {
+    let min = Infinity;
+    let max = -Infinity;
+    for (let k = start; k < series.length; k++) {
+      const v = series[k];
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    if (!Number.isFinite(min) || !Number.isFinite(max)) return NaN;
+    return max - min;
+  } else if (metric === 'period') {
+    if (!Number.isFinite(dt) || dt <= 0) return NaN;
+    const peaks = [];
+    for (let k = Math.max(start + 1, 1); k < series.length - 1; k++) {
+      const prev = series[k - 1];
+      const curr = series[k];
+      const next = series[k + 1];
+      if (curr > prev && curr >= next) peaks.push(k);
+    }
+    if (peaks.length < 2) return NaN;
+    let sum = 0;
+    for (let i = 1; i < peaks.length; i++) sum += (peaks[i] - peaks[i - 1]);
+    if (!sum) return NaN;
+    const meanStep = sum / (peaks.length - 1);
+    return meanStep * dt;
+  }
+  return NaN;
+}
+
+function computeDeltaGrid(active, baseline) {
+  const out = new Float32Array(active.length);
+  for (let i = 0; i < active.length; i++) {
+    const a = active[i];
+    const b = baseline[i];
+    out[i] = Number.isFinite(a) && Number.isFinite(b) ? a - b : NaN;
+  }
+  return out;
+}
+
+function summarizeGridDifference(grid, reference) {
+  let sum = 0;
+  let count = 0;
+  let min = Infinity;
+  let max = -Infinity;
+  for (let i = 0; i < grid.length; i++) {
+    const a = grid[i];
+    const b = reference[i];
+    if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+    const diff = a - b;
+    if (diff < min) min = diff;
+    if (diff > max) max = diff;
+    sum += diff;
+    count++;
+  }
+  return {
+    mean: count ? sum / count : NaN,
+    min: count ? min : NaN,
+    max: count ? max : NaN,
+  };
+}
+
+function formatSigned(value, digits = 2) {
+  if (!Number.isFinite(value)) return '–';
+  const prefix = value >= 0 ? '+' : '-';
+  const abs = Math.abs(value);
+  let places = digits;
+  if (abs >= 100) places = 0;
+  else if (abs >= 10) places = Math.min(places, 1);
+  return `${prefix}${abs.toFixed(places)}`;
+}
+
+function updateAnalysisPrefsFromSnapshot(rawPrefs) {
+  const pref = rawPrefs?.heatmap || {};
+  const showBaseline = pref.showBaseline !== false;
+  const showDelta = pref.showDelta !== false;
+  const overlaysRaw = Array.isArray(pref.overlays) ? pref.overlays : [];
+  const overlaysFiltered = [];
+  const seen = new Set();
+  overlaysRaw.forEach((id) => {
+    if (!id || id === BASELINE_ID || !modificationsById.has(id) || seen.has(id)) return;
+    seen.add(id);
+    overlaysFiltered.push(id);
+  });
+  const changed =
+    showBaseline !== analysisPrefs.showBaseline ||
+    showDelta !== analysisPrefs.showDelta ||
+    !arraysEqual(overlaysFiltered, analysisPrefs.overlays);
+  if (changed) {
+    analysisPrefs = { showBaseline, showDelta, overlays: overlaysFiltered };
+  }
+  return changed;
+}
+
+function arraysEqual(a, b) {
+  if (a === b) return true;
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
 
 function drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, metric){
   const W = cv.width, H = cv.height;
@@ -240,4 +424,26 @@ function turbo(t){
     Math.min(255, Math.max(0, g)),
     Math.min(255, Math.max(0, b)),
   ];
+}
+
+function summarizeEffect(effect){
+  if (!effect || effect.id === null) return ` (mod: ${DEFAULT_EFFECT.label})`;
+  const segments = [
+    `k1${formatScale(effect.scaleK1)}`,
+    `b${formatScale(effect.scaleB)}`,
+  ];
+  if (Math.abs(effect.hairpin - 1) > 1e-3) segments.push(`G${formatScale(effect.hairpin)}`);
+  return ` (mod: ${effect.label || 'Modification'} — ${segments.join(', ')})`;
+}
+
+function formatScale(value){
+  if (!Number.isFinite(value)) return '×–';
+  return `×${value.toFixed(3)}`;
+}
+
+function updateModificationEffect(mod){
+  modificationEffect = computeEffectFromModification(mod);
+  if (!runBtn.disabled) {
+    status.textContent = `Ready${summarizeEffect(modificationEffect)}`;
+  }
 }

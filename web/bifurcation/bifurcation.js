@@ -1,18 +1,44 @@
 import { initWasm, runSimulationPhysical } from "../core.js";
+import {
+  initModificationStore,
+  subscribe as subscribeModificationStore,
+  getActiveModification,
+  listModifications,
+  getAnalysisPrefs,
+} from "../modifications/store.js";
+import {
+  DEFAULT_EFFECT,
+  computeEffectFromModification,
+  applyEffectToParams,
+} from "../modifications/apply.js";
 
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d', { alpha:false });
 const status = document.getElementById('status');
 const runBtn = document.getElementById('runBtn');
+const legendEl = document.getElementById('legend');
+const BASELINE_ID = 'mod-default';
+const ACTIVE_STYLE = Object.freeze({ maxColor: '#1d4ed8', minColor: '#ef4444', radius: 2.2 });
+const BASELINE_STYLE = Object.freeze({ maxColor: '#60a5fa', minColor: '#fca5a5', radius: 2.0 });
+const OVERLAY_STYLES = Object.freeze([
+  { maxColor: '#6366f1', minColor: '#c4b5fd', radius: 1.9 },
+  { maxColor: '#22c55e', minColor: '#bbf7d0', radius: 1.9 },
+  { maxColor: '#f97316', minColor: '#fed7aa', radius: 1.9 },
+  { maxColor: '#a855f7', minColor: '#e9d5ff', radius: 1.9 },
+]);
 
 const ids = [
   'param','pmin','pmax','steps','t_end','dt','tail',
-  'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0','mod_factor'
+  'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0'
 ];
 const el = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 const presetSel = document.getElementById('preset');
 const applyPresetBtn = document.getElementById('applyPreset');
 const presetDesc = document.getElementById('presetDesc');
+
+let modificationEffect = { ...DEFAULT_EFFECT };
+let analysisPrefs = { showBaseline: true, overlays: [] };
+let modificationsById = new Map();
 
 function valNum(id){ return parseFloat(el[id].value); }
 function baseParams(){
@@ -28,7 +54,6 @@ function baseParams(){
     KmP: valNum('KmP'),
     N0: valNum('N0'),
     P0: valNum('P0'),
-    mod_factor: valNum('mod_factor'),
     t_end_min: valNum('t_end'),
     dt_min: valNum('dt'),
   };
@@ -36,43 +61,57 @@ function baseParams(){
 
 runBtn.addEventListener('click', async () => {
   runBtn.disabled = true;
-  status.textContent = 'Running sweep...';
+  const effectSummary = summarizeEffect(modificationEffect);
+  status.textContent = `Running sweeps...${effectSummary}`;
   await initWasm();
 
-  const pname = el.param.value; // swept parameter
+  const pname = el.param.value;
   const pmin = valNum('pmin');
   const pmax = valNum('pmax');
   const steps = Math.max(1, Math.floor(valNum('steps')));
   const tailPct = Math.min(100, Math.max(1, Math.floor(valNum('tail'))));
-
-  const xs = [];
-  const yMin = [];
-  const yMax = [];
-
+  const denom = Math.max(steps - 1, 1);
+  const xValues = Array.from({ length: steps }, (_, i) => pmin + (pmax - pmin) * (i / denom));
+  const configs = buildSeriesConfigs();
   const bp = baseParams();
-  const nSteps = steps;
-  for (let i=0; i<nSteps; i++){
-    const t0 = performance.now();
-    const x = pmin + (pmax - pmin) * (i / (nSteps - 1 || 1));
-    const params = { ...bp, [pname]: x };
-    const { P } = runSimulationPhysical(params);
-    const tail = Math.max(1, Math.floor(P.length * (tailPct/100)));
-    let pminTail = +Infinity, pmaxTail = -Infinity;
-    for (let j=P.length - tail; j<P.length; j++){
-      const v = P[j];
-      if (v < pminTail) pminTail = v;
-      if (v > pmaxTail) pmaxTail = v;
+  const seriesResults = [];
+
+  for (let sIndex = 0; sIndex < configs.length; sIndex++) {
+    const cfg = configs[sIndex];
+    const yMinSeries = [];
+    const yMaxSeries = [];
+    for (let i = 0; i < xValues.length; i++) {
+      const x = xValues[i];
+      const paramsBase = { ...bp, [pname]: x };
+      const params = applyEffectToParams(paramsBase, cfg.effect);
+      const { P } = runSimulationPhysical(params);
+      const tail = Math.max(1, Math.floor(P.length * (tailPct / 100)));
+      let pminTail = +Infinity;
+      let pmaxTail = -Infinity;
+      for (let j = P.length - tail; j < P.length; j++) {
+        const v = P[j];
+        if (v < pminTail) pminTail = v;
+        if (v > pmaxTail) pmaxTail = v;
+      }
+      yMinSeries.push(pminTail);
+      yMaxSeries.push(pmaxTail);
+      if ((i % 5) === 0) {
+        status.textContent = `Running sweep (${cfg.label}) ${i + 1}/${xValues.length}${effectSummary}`;
+        await new Promise((r) => setTimeout(r));
+      }
     }
-    xs.push(x);
-    yMin.push(pminTail);
-    yMax.push(pmaxTail);
-    const t1 = performance.now();
-    if ((i%5)===0) status.textContent = `Running sweep... ${i+1}/${nSteps} | last ${(t1-t0).toFixed(1)} ms`;
-    await new Promise(r => setTimeout(r)); // yield UI
+    seriesResults.push({ ...cfg, xs: xValues, yMin: yMinSeries, yMax: yMaxSeries });
   }
 
-  drawBifurcation(xs, yMin, yMax, pname);
-  status.textContent = `Done. points=${xs.length}`;
+  drawBifurcation(seriesResults, pname);
+  updateLegend(seriesResults);
+  const overlayLabels = seriesResults.filter((s) => s.role === 'overlay').map((s) => s.label);
+  const effectNote = effectSummary.trim();
+  const parts = [`Done. series=${seriesResults.length}, steps=${xValues.length}`];
+  if (effectNote) parts.push(effectNote);
+  if (seriesResults.some((s) => s.role === 'baseline')) parts.push('baseline overlay');
+  if (overlayLabels.length) parts.push(`overlays: ${overlayLabels.join(', ')}`);
+  status.textContent = parts.filter(Boolean).join(' | ');
   runBtn.disabled = false;
 });
 
@@ -92,7 +131,6 @@ function initDefaults(){
   setVal('KmP', 34);
   setVal('N0', 10);
   setVal('P0', 10);
-  setVal('mod_factor', 1.0);
 
   // Reasonable simulation window
   setVal('t_end', 3000);
@@ -115,6 +153,17 @@ applyPresetBtn.addEventListener('click', () => {
   } else {
     presetDesc.textContent = '';
   }
+});
+
+await initModificationStore();
+modificationsById = new Map(listModifications().map((m) => [m.id, m]));
+updateAnalysisPrefsFromSnapshot(getAnalysisPrefs());
+updateModificationEffect(getActiveModification());
+subscribeModificationStore((snapshot) => {
+  modificationsById = new Map((snapshot.modifications || []).map((m) => [m.id, m]));
+  const mod = modificationsById.get(snapshot.activeId) || null;
+  updateModificationEffect(mod);
+  updateAnalysisPrefsFromSnapshot(snapshot.analysisPrefs);
 });
 
 initDefaults();
@@ -146,36 +195,64 @@ function niceAxis(min, max, maxTicks=6){
   return {min:niceMin, max:niceMax, step, ticks};
 }
 
-function drawBifurcation(xs, yMin, yMax, pname){
+function drawBifurcation(seriesList, pname){
   const W = cv.width, H = cv.height;
   const L = 70, R = 30, T = 50, B = 60;
   ctx.save(); ctx.fillStyle = '#fff'; ctx.fillRect(0,0,W,H); ctx.restore();
 
-  const xMin = Math.min(...xs), xMax = Math.max(...xs);
-  const yAll = yMin.concat(yMax);
-  const yMinV = Math.min(...yAll), yMaxV = Math.max(...yAll);
-  const xPadding = 0.02*(xMax - xMin || 1);
-  const yPadding = 0.05*(yMaxV - yMinV || 1);
+  if (!seriesList.length) return;
+
+  let xMin = Infinity, xMax = -Infinity;
+  let yMin = Infinity, yMax = -Infinity;
+  for (const series of seriesList) {
+    for (const x of series.xs) {
+      if (x < xMin) xMin = x;
+      if (x > xMax) xMax = x;
+    }
+    for (const v of series.yMin) {
+      if (v < yMin) yMin = v;
+      if (v > yMax) yMax = v;
+    }
+    for (const v of series.yMax) {
+      if (v < yMin) yMin = v;
+      if (v > yMax) yMax = v;
+    }
+  }
+  if (!Number.isFinite(xMin) || !Number.isFinite(xMax)) { xMin = 0; xMax = 1; }
+  if (!Number.isFinite(yMin) || !Number.isFinite(yMax)) { yMin = 0; yMax = 1; }
+
+  const xPadding = 0.02 * (xMax - xMin || 1);
+  const yPadding = 0.05 * (yMax - yMin || 1);
   const xTicks = niceAxis(xMin - xPadding, xMax + xPadding, 6);
-  const yTicks = niceAxis(yMinV - yPadding, yMaxV + yPadding, 6);
+  const yTicks = niceAxis(yMin - yPadding, yMax + yPadding, 6);
 
-  const xOf = (v) => L + ((v - xTicks.min)/(xTicks.max - xTicks.min)) * (W - L - R);
-  const yOf = (v) => H - B - ((v - yTicks.min)/(yTicks.max - yTicks.min)) * (H - T - B);
+  const xRange = xTicks.max - xTicks.min || 1;
+  const yRange = yTicks.max - yTicks.min || 1;
+  const xOf = (v) => L + ((v - xTicks.min)/xRange) * (W - L - R);
+  const yOf = (v) => H - B - ((v - yTicks.min)/yRange) * (H - T - B);
 
-  // Grid
   ctx.strokeStyle = '#eef2f7'; ctx.lineWidth = 1; ctx.beginPath();
   for (const xv of xTicks.ticks){ const x = xOf(xv); ctx.moveTo(x,T); ctx.lineTo(x,H-B);} 
   for (const yv of yTicks.ticks){ const y = yOf(yv); ctx.moveTo(L,y); ctx.lineTo(W-R,y);} 
   ctx.stroke();
   ctx.strokeStyle = '#e5e7eb'; ctx.strokeRect(L, T, W - L - R, H - T - B);
 
-  // Points: maxima and minima
-  ctx.fillStyle = '#1d4ed8';
-  for (let i=0;i<xs.length;i++){ const x = xOf(xs[i]); const y = yOf(yMax[i]); dot(ctx, x, y, 2); }
-  ctx.fillStyle = '#ef4444';
-  for (let i=0;i<xs.length;i++){ const x = xOf(xs[i]); const y = yOf(yMin[i]); dot(ctx, x, y, 2); }
+  for (const series of seriesList) {
+    const radius = series.style.radius || 2;
+    ctx.fillStyle = series.style.maxColor;
+    for (let i = 0; i < series.xs.length; i++) {
+      const x = xOf(series.xs[i]);
+      const y = yOf(series.yMax[i]);
+      dot(ctx, x, y, radius);
+    }
+    ctx.fillStyle = series.style.minColor;
+    for (let i = 0; i < series.xs.length; i++) {
+      const x = xOf(series.xs[i]);
+      const y = yOf(series.yMin[i]);
+      dot(ctx, x, y, radius);
+    }
+  }
 
-  // Axes labels
   ctx.fillStyle = '#111827';
   ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
@@ -195,3 +272,138 @@ function drawBifurcation(xs, yMin, yMax, pname){
 
 function dot(ctx, x, y, r){ ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
 function roundSmart(v){ const a=Math.abs(v); if(a>=100) return Math.round(v); if(a>=10) return Math.round(v*10)/10; return Math.round(v*100)/100; }
+
+function summarizeEffect(effect){
+  if (!effect || effect.id === null) return ` (mod: ${DEFAULT_EFFECT.label})`;
+  const segments = [
+    `k1${formatScale(effect.scaleK1)}`,
+    `b${formatScale(effect.scaleB)}`,
+  ];
+  if (Math.abs(effect.hairpin - 1) > 1e-3) segments.push(`G${formatScale(effect.hairpin)}`);
+  return ` (mod: ${effect.label || 'Modification'} — ${segments.join(', ')})`;
+}
+
+function formatScale(value){
+  if (!Number.isFinite(value)) return '×–';
+  return `×${value.toFixed(3)}`;
+}
+
+function buildSeriesConfigs() {
+  const configs = [];
+  const activeLabel = modificationEffect.id
+    ? (modificationEffect.label || 'Active modification')
+    : 'Baseline';
+  configs.push({
+    id: modificationEffect.id ?? 'active',
+    label: activeLabel,
+    effect: modificationEffect,
+    style: ACTIVE_STYLE,
+    role: 'active',
+  });
+
+  if (analysisPrefs.showBaseline && modificationEffect.id !== null) {
+    configs.push({
+      id: BASELINE_ID,
+      label: 'Baseline',
+      effect: DEFAULT_EFFECT,
+      style: BASELINE_STYLE,
+      role: 'baseline',
+    });
+  }
+
+  const overlays = analysisPrefs.overlays || [];
+  overlays.forEach((id, idx) => {
+    if (!id || id === modificationEffect.id) return;
+    const mod = modificationsById.get(id);
+    if (!mod) return;
+    const effect = computeEffectFromModification(mod);
+    configs.push({
+      id,
+      label: mod.label || id,
+      effect,
+      style: getOverlayStyle(idx),
+      role: 'overlay',
+    });
+  });
+
+  return configs;
+}
+
+function getOverlayStyle(index) {
+  const base = OVERLAY_STYLES[index % OVERLAY_STYLES.length];
+  return {
+    maxColor: base.maxColor,
+    minColor: base.minColor,
+    radius: base.radius || 1.8,
+  };
+}
+
+function updateLegend(seriesList) {
+  if (!legendEl) return;
+  if (!seriesList.length) {
+    legendEl.textContent = '';
+    return;
+  }
+  const html = seriesList.map((series) => {
+    const label = escapeHtml(series.label || 'Series');
+    return `
+      <span class="legend-item">
+        <strong>${label}</strong>
+        <span class="legend-mode"><span class="swatch" style="background:${series.style.maxColor}"></span>max(P)</span>
+        <span class="legend-mode"><span class="swatch" style="background:${series.style.minColor}"></span>min(P)</span>
+      </span>
+    `;
+  }).join('');
+  legendEl.innerHTML = html;
+}
+
+function updateAnalysisPrefsFromSnapshot(rawPrefs) {
+  const pref = rawPrefs?.bifurcation || {};
+  const showBaseline = pref.showBaseline !== false;
+  const overlaysRaw = Array.isArray(pref.overlays) ? pref.overlays : [];
+  const overlaysFiltered = [];
+  const seen = new Set();
+  overlaysRaw.forEach((id) => {
+    if (!id || id === BASELINE_ID || !modificationsById.has(id) || seen.has(id)) return;
+    seen.add(id);
+    overlaysFiltered.push(id);
+  });
+  const changed =
+    showBaseline !== analysisPrefs.showBaseline ||
+    !arraysEqual(overlaysFiltered, analysisPrefs.overlays);
+  if (changed) {
+    analysisPrefs = { showBaseline, overlays: overlaysFiltered };
+  }
+  return changed;
+}
+
+function arraysEqual(a, b) {
+  if (a === b) return true;
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str).replace(/[&<>'"]/g, (ch) => {
+    switch (ch) {
+      case '&': return '&amp;';
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '"': return '&quot;';
+      case "'": return '&#39;';
+      default: return ch;
+    }
+  });
+}
+
+function updateModificationEffect(mod){
+  modificationEffect = computeEffectFromModification(mod);
+  if (!runBtn.disabled) {
+    status.textContent = `Ready${summarizeEffect(modificationEffect)}`;
+  }
+}

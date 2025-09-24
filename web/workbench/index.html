@@ -1,0 +1,519 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Modification Workbench — PP-oscillation</title>
+<style>
+  :root {
+    --line:#e5e7eb;
+    --muted:#475569;
+    --accent:#2563eb;
+    --bg:#f8fafc;
+  }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+    margin:16px;
+    background:var(--bg);
+    color:#0f172a;
+  }
+  .wrap { display:flex; flex-direction:column; gap:16px; }
+  .nav {
+    display:flex; gap:12px; flex-wrap:wrap;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:#fff;
+    box-shadow:0 1px 2px rgba(15,23,42,0.05);
+  }
+  .nav a { color:var(--accent); text-decoration:none; }
+  .nav a:hover { text-decoration:underline; }
+  .nav a.active {
+    font-weight:600;
+    color:#0f172a;
+    pointer-events:none;
+  }
+  .card {
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:16px;
+    box-shadow:0 2px 6px rgba(15,23,42,0.06);
+  }
+  .hero h2 { margin:0 0 6px; font-size:1.8rem; }
+  .hero p { margin:0; color:var(--muted); line-height:1.6; }
+
+  .section { display:flex; flex-direction:column; gap:14px; }
+  .section-header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .section-header h3 { margin:0; font-size:1.35rem; }
+  .status-pill {
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:4px 10px;
+    font-size:.9rem;
+    background:#e2e8f0;
+    border:1px solid #cbd5e1;
+    border-radius:999px;
+    color:#0f172a;
+  }
+  .dot { width:8px; height:8px; border-radius:50%; background:#0f172a; animation:pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%{opacity:.2;} 50%{opacity:1;} 100%{opacity:.2;} }
+
+  .design-layout {
+    display:grid;
+    grid-template-columns: minmax(260px, 320px) minmax(360px, 1fr);
+    gap:18px;
+  }
+  .mod-list {
+    display:flex; flex-direction:column; gap:12px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:12px;
+    background:#f8fafc;
+  }
+  .mod-list-header { display:flex; gap:8px; align-items:center; justify-content:space-between; }
+  .mod-list-header h4 { margin:0; font-size:1rem; color:#1e293b; }
+  .mod-actions { display:flex; gap:8px; }
+  .mod-actions button {
+    padding:6px 10px;
+    border-radius:8px;
+    border:1px solid #cbd5e1;
+    background:#fff;
+    font-size:.9rem;
+    cursor:pointer;
+  }
+  .mod-actions button:hover { background:#f1f5f9; }
+  .mod-actions button[disabled] { opacity:.5; cursor:not-allowed; }
+  .mod-items { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px; max-height:420px; overflow:auto; }
+  .mod-item {
+    border:1px solid #d8dee9;
+    border-radius:10px;
+    padding:9px 10px;
+    background:#fff;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .mod-item.active {
+    border-color:#2563eb;
+    box-shadow:0 0 0 1px rgba(37,99,235,0.1);
+  }
+  .mod-item-title { font-weight:600; font-size:0.95rem; color:#0f172a; }
+  .mod-item-meta { font-size:0.82rem; color:#64748b; }
+
+  .mod-editor {
+    display:flex; flex-direction:column; gap:16px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:16px;
+    background:#fdfdfd;
+  }
+  .editor-grid {
+    display:grid;
+    gap:12px 14px;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    align-items:flex-start;
+  }
+  .field { display:flex; flex-direction:column; gap:4px; }
+  .field label { font-size:.9rem; color:#1e293b; }
+  .field input, .field select, .field textarea {
+    padding:7px 9px;
+    border-radius:8px;
+    border:1px solid #cbd5e1;
+    font-size:0.95rem;
+    background:#fff;
+    box-sizing:border-box;
+  }
+  .field textarea { min-height:72px; resize:vertical; }
+  .field input:disabled, .field textarea:disabled { background:#f8fafc; color:#94a3b8; }
+  .field small { color:#64748b; font-size:0.78rem; }
+
+  .derived-panel {
+    border-top:1px dashed #d0d7e2;
+    padding-top:12px;
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap:10px 14px;
+  }
+  .derived-card {
+    background:#f8fafc;
+    border:1px solid #e2e8f0;
+    border-radius:10px;
+    padding:10px 12px;
+  }
+  .derived-card h5 { margin:0 0 4px; font-size:.92rem; color:#0f172a; }
+  .derived-card span { display:block; font-size:1.05rem; font-weight:600; color:#1e293b; }
+  .derived-card small { display:block; color:#64748b; font-size:.78rem; margin-top:2px; }
+
+  .map-grid {
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap:16px;
+  }
+  .map-card {
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:14px;
+    background:#fdfdfd;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    box-shadow:0 1px 3px rgba(15,23,42,0.05);
+  }
+  .map-card h4 { margin:0; font-size:1.1rem; color:#0f172a; }
+  .map-card p { margin:0; color:#64748b; font-size:.9rem; line-height:1.4; }
+  .map-card select[multiple] {
+    min-height:96px;
+    padding:6px 8px;
+    border-radius:10px;
+    border:1px solid #cbd5e1;
+    font-size:.92rem;
+    background:#fff;
+  }
+  .map-card small { color:#94a3b8; font-size:.78rem; }
+  .map-card .map-actions { margin-top:auto; display:flex; gap:12px; flex-wrap:wrap; }
+  .map-card .map-actions a {
+    font-size:.9rem;
+    color:#2563eb;
+    text-decoration:none;
+  }
+  .map-card .map-actions a:hover { text-decoration:underline; }
+  .toggle { display:flex; align-items:center; gap:8px; font-size:.92rem; color:#1e293b; }
+  .toggle input { accent-color:#2563eb; }
+  #mapStatus {
+    background:#e0f2fe;
+    border-color:#bae6fd;
+    color:#0c4a6e;
+  }
+
+  .placeholder {
+    border:1px dashed #cbd5e1;
+    border-radius:10px;
+    padding:12px;
+    color:#64748b;
+    font-size:.92rem;
+    background:#f8fafc;
+  }
+
+  @media (max-width: 980px) {
+    .design-layout { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="wrap">
+  <div class="nav">
+    <a href="../">Home</a>
+    <span>·</span>
+    <a href="../simulator/">Simulator</a>
+    <span>·</span>
+    <a href="../bifurcation/">Bifurcation</a>
+    <span>·</span>
+    <a href="../heatmap/">Heatmap</a>
+    <span>·</span>
+    <a href="./" class="active">Modification Workbench</a>
+  </div>
+
+  <div class="card hero">
+    <h2>Modification Workbench</h2>
+    <p>
+      会合・速度・飽和の“素”パラメタに分解された修飾カードを設計し、物理パラメタ (k1, b, g, β) への反映を即座に確認します。
+      保存はブラウザにローカル保存され、Simulator / Bifurcation / Heatmap と共有されます。
+    </p>
+  </div>
+
+  <div class="card section" id="designSection">
+    <div class="section-header">
+      <h3>Design</h3>
+      <span class="status-pill" id="storeStatus"><span class="dot"></span>Loading store…</span>
+    </div>
+    <div class="design-layout">
+      <aside class="mod-list">
+        <div class="mod-list-header">
+          <h4>修飾カード</h4>
+          <div class="mod-actions">
+            <button id="newModBtn">New</button>
+            <button id="duplicateModBtn" disabled>Duplicate</button>
+            <button id="deleteModBtn" disabled>Delete</button>
+          </div>
+        </div>
+        <ul class="mod-items" id="modList"></ul>
+      </aside>
+
+      <div class="mod-editor">
+        <div class="editor-grid">
+          <div class="field">
+            <label for="mod_label">Label</label>
+            <input id="mod_label" type="text" placeholder="e.g. Lys-mod @ 37°C" disabled>
+          </div>
+          <div class="field">
+            <label for="mod_amino">Amino acid</label>
+            <input id="mod_amino" type="text" placeholder="(optional)" disabled>
+          </div>
+          <div class="field">
+            <label for="mod_linker">Linker length [atoms]</label>
+            <input id="mod_linker" type="number" min="0" step="1" placeholder="(optional)" disabled>
+            <small>リンカーがある場合の長さを整数で指定</small>
+          </div>
+          <div class="field">
+            <label for="mod_linker_polarity">Linker polarity</label>
+            <select id="mod_linker_polarity" disabled>
+              <option value="">(optional)</option>
+              <option value="hydrophilic">hydrophilic</option>
+              <option value="hydrophobic">hydrophobic</option>
+              <option value="neutral">neutral</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="mod_temperature">Temperature [°C]</label>
+            <input id="mod_temperature" type="number" step="0.1" disabled>
+          </div>
+          <div class="field">
+            <label for="mod_r_assoc">r_assoc</label>
+            <input id="mod_r_assoc" type="number" min="0" step="0.01" disabled>
+            <small>推奨域: 0.2 – 5.0</small>
+          </div>
+          <div class="field">
+            <label for="mod_ddg_assoc">ΔΔG_assoc [kcal/mol]</label>
+            <input id="mod_ddg_assoc" type="number" step="0.01" disabled>
+            <small>入力で r_assoc と相互変換されます (推奨域: -5 – +5)</small>
+          </div>
+          <div class="field">
+            <label for="mod_r_poly">r_poly</label>
+            <input id="mod_r_poly" type="number" min="0" step="0.01" disabled>
+          </div>
+          <div class="field">
+            <label for="mod_r_nick">r_nick</label>
+            <input id="mod_r_nick" type="number" min="0" step="0.01" disabled>
+          </div>
+          <div class="field">
+            <label for="mod_use_hairpin">Hairpin correction</label>
+            <select id="mod_use_hairpin" disabled>
+              <option value="false">off</option>
+              <option value="true">on</option>
+            </select>
+            <small>G ヘアピン補正を有効にすると g' 計算に f_open を適用</small>
+          </div>
+          <div class="field">
+            <label for="mod_ddg_fold">ΔΔG_fold [kcal/mol]</label>
+            <input id="mod_ddg_fold" type="number" step="0.01" disabled>
+          </div>
+          <div class="field" style="grid-column:1 / -1;">
+            <label for="mod_notes">Notes</label>
+            <textarea id="mod_notes" placeholder="実験メモや観測メモ" disabled></textarea>
+          </div>
+        </div>
+
+        <div class="derived-panel" id="derivedPanel">
+          <div class="derived-card">
+            <h5>k1'</h5>
+            <span id="derived_k1">–</span>
+            <small>base k1 × (r_assoc · r_poly / r_nick)</small>
+          </div>
+          <div class="derived-card">
+            <h5>b'</h5>
+            <span id="derived_b">–</span>
+            <small>base b × (r_assoc / r_nick)</small>
+          </div>
+          <div class="derived-card">
+            <h5>g'</h5>
+            <span id="derived_g">–</span>
+            <small>g × (r_assoc · r_poly / r_nick)</small>
+          </div>
+          <div class="derived-card">
+            <h5>β'</h5>
+            <span id="derived_beta">–</span>
+            <small>β × (1 / r_poly)</small>
+          </div>
+          <div class="derived-card">
+            <h5>Dominance</h5>
+            <span id="derived_dominance">–</span>
+            <small>支配的な素因子</small>
+          </div>
+          <div class="derived-card">
+            <h5>Hairpin f_open</h5>
+            <span id="derived_hairpin">–</span>
+            <small>有効 G / 基準 G</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card section">
+    <div class="section-header">
+      <h3>Simulate / Map</h3>
+      <span class="status-pill" id="mapStatus"><span class="dot"></span>Loading…</span>
+    </div>
+    <div class="map-grid">
+      <div class="map-card" data-page="simulator">
+        <h4>Simulator</h4>
+        <p>時間波形を基準条件と比較し、選択した修飾を重ね描画します。</p>
+        <label class="toggle">
+          <input type="checkbox" id="map_simulator_baseline" disabled>
+          Baseline overlay
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="map_simulator_delta" disabled>
+          Δ metrics vs baseline
+        </label>
+        <div class="field">
+          <label for="map_simulator_overlays">Overlay modifications</label>
+          <select id="map_simulator_overlays" multiple disabled></select>
+          <small>Ctrl / Cmd で複数選択。アクティブ修飾は常時反映されます。</small>
+        </div>
+        <div class="map-actions">
+          <a href="../simulator/" target="_blank" rel="noopener">Open Simulator ↗</a>
+        </div>
+      </div>
+
+      <div class="map-card" data-page="bifurcation">
+        <h4>Bifurcation</h4>
+        <p>分岐図に基準条件や別修飾の軌跡をオーバーレイします。</p>
+        <label class="toggle">
+          <input type="checkbox" id="map_bifurcation_baseline" disabled>
+          Baseline overlay
+        </label>
+        <div class="field">
+          <label for="map_bifurcation_overlays">Overlay modifications</label>
+          <select id="map_bifurcation_overlays" multiple disabled></select>
+          <small>重ねたい修飾を選択。配色は自動で割当てられます。</small>
+        </div>
+        <div class="map-actions">
+          <a href="../bifurcation/" target="_blank" rel="noopener">Open Bifurcation ↗</a>
+        </div>
+      </div>
+
+      <div class="map-card" data-page="heatmap">
+        <h4>Heatmap</h4>
+        <p>2D 掃引の結果を基準との差分として表示し、他の修飾と比較します。</p>
+        <label class="toggle">
+          <input type="checkbox" id="map_heatmap_baseline" disabled>
+          Compute baseline reference
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="map_heatmap_delta" disabled>
+          Show Δ heatmap vs baseline
+        </label>
+        <div class="field">
+          <label for="map_heatmap_overlays">Overlay modifications</label>
+          <select id="map_heatmap_overlays" multiple disabled></select>
+          <small>差分統計に含める修飾を選択します。</small>
+        </div>
+        <div class="map-actions">
+          <a href="../heatmap/" target="_blank" rel="noopener">Open Heatmap ↗</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card section">
+    <div class="section-header">
+      <h3>Fit</h3>
+    </div>
+    <div class="placeholder">
+      CSV からの同定ワークフローは準備中です。Prey-only 実験と G:N 蛍光滴定のアップロード UI をここに統合予定です。
+    </div>
+  </div>
+
+  <div class="card section">
+    <div class="section-header">
+      <h3>Library</h3>
+    </div>
+    <div class="placeholder">
+      修飾カードの比較ビュー、フィルタリング、エクスポートは v1.0 以降の開発項目です。
+    </div>
+  </div>
+
+  <div class="card section" id="guideSection">
+    <div class="section-header">
+      <h3>Workbench ガイド</h3>
+    </div>
+    <div class="section">
+      <p>
+        このワークベンチは、末端修飾（アミノ酸やリンカー）が振動の出やすさ・周期・振幅にどう効くかを、
+        設計 → 予測 → 実験データ当てはめ → 再予測まで一気通貫で扱うためのページです。上のコントロールを更新すると、シミュレーター・分岐図・ヒートマップに即座に反映されます。
+      </p>
+
+      <h4>1. 基本の考え方</h4>
+      <p>修飾の効果は「会合」「速度」「飽和」の3要素に分解して扱います。</p>
+      <ul>
+        <li>
+          <strong>会合</strong>（<span>r<sub>assoc</sub></span>):
+          <span>r<sub>assoc</sub> = exp(-ΔΔG<sub>assoc</sub> / (R T))</span>。
+          <span>R = 1.987×10<sup>-3</sup> kcal·mol<sup>-1</sup>·K<sup>-1</sup>、T は絶対温度[K]。</span>
+          例: 37&nbsp;°C (T≈310.15 K, RT≈0.616 kcal/mol) で ΔΔG<sub>assoc</sub> = -0.8 kcal/mol のとき r<sub>assoc</sub> ≈ 3.7。
+        </li>
+        <li><strong>速度</strong>（<span>r<sub>poly</sub></span>): ポリメラーゼ／ニッキングの回りやすさ。</li>
+        <li><strong>飽和</strong>（<span>r<sub>nick</sub></span>): ニッキング側で決まる飽和しきい値の変化。</li>
+      </ul>
+      <p>入力した比からアプリが有効パラメータを算出します。</p>
+      <p>
+        k′<sub>1</sub> = k<sub>1</sub> · (r<sub>assoc</sub> · r<sub>poly</sub>) / r<sub>nick</sub>、
+        b′ = b · (r<sub>assoc</sub> / r<sub>nick</sub>)、
+        g′ = g · (r<sub>assoc</sub> · r<sub>poly</sub>) / r<sub>nick</sub>、
+        β′ = β / r<sub>poly</sub>。
+      </p>
+      <p>
+        会合だけが変わる（r<sub>poly</sub> = r<sub>nick</sub> = 1）場合は β 不変で g だけがシフトし、分岐図では横方向のずれとして観察されます。
+        速度が変わると β も動き、振動しやすい帯全体が伸縮します。ヘアピン補正を ON にすると、開いている G 分率 f<sub>open</sub> から G<sub>free</sub> = f<sub>open</sub> · G を自動適用します（既定 OFF）。
+      </p>
+
+      <h4>2. できること</h4>
+      <ol>
+        <li>
+          <strong>修飾の設計</strong> — アミノ酸・リンカー・温度、ΔΔG<sub>assoc</sub> または r<sub>*</sub> を入力すると、k′<sub>1</sub>, b′, g′, β′、支配要因の診断が即時計算されます。
+        </li>
+        <li>
+          <strong>即時シミュレーション</strong> — シミュレーターで時間波形、分岐図で G 掃引、ヒートマップで 2D 掃引を確認。無修飾や複数修飾との重ね合わせも可能です。
+        </li>
+        <li>
+          <strong>実験データの当てはめ</strong> — Prey-only CSV から k′<sub>1</sub>, b′ を同時フィット。G:N 滴定 CSV で r<sub>assoc</sub> を推定し、r<sub>poly</sub> や r<sub>nick</sub> を逆算します。
+        </li>
+        <li>
+          <strong>アミノ酸マップ作成</strong> — 保存した修飾カードを電荷・芳香族性・疎水性・リンカー長でフィルタし、周期・振幅・発振域を比較。レポート出力も検討中です。
+        </li>
+      </ol>
+
+      <h4>3. 操作フロー例</h4>
+      <ol>
+        <li>修飾カードを選び、ΔΔG<sub>assoc</sub> や比 r<sub>*</sub> を入力。</li>
+        <li>時間波形で直感を掴み、分岐図でしきい値のずれ、ヒートマップで周期帯を確認。</li>
+        <li>実験 CSV を読み込み、k′<sub>1</sub>, b′ や r<sub>assoc</sub> を同定。</li>
+        <li>得られた r<sub>poly</sub>, r<sub>nick</sub> を使って再予測し、次の条件（G・Recなど）を決定。</li>
+      </ol>
+
+      <h4>4. データ入力フォーマット</h4>
+      <ul>
+        <li><strong>Prey-only CSV</strong> — `time,F_green[,F_yellow]` の3列（ヘッダー必須）。時間単位は s または min。読み込み時にベースライン・交差トーク補正可。</li>
+        <li><strong>G:N 滴定 CSV</strong> — `N,F` の2列（ヘッダー必須）。G 濃度は画面メタデータで指定。</li>
+      </ul>
+
+      <h4>5. コツと注意点</h4>
+      <ul>
+        <li>ΔΔG<sub>assoc</sub> はおおよそ ±5 kcal/mol、比 r<sub>*</sub> は 0.2〜5 が目安。</li>
+        <li>分岐図で横にずれるだけなら会合主導、帯の広さが変わるなら速度主導のことが多いです。</li>
+        <li>b は条件依存で揺れやすいので、ヒートマップの帯を少し広めに見ると安全です。</li>
+        <li>温度変更で RT が変化します（37 °C なら RT ≈ 0.616 kcal/mol）。温度を合わせると推定が安定します。</li>
+      </ul>
+
+      <h4>6. 困ったときは</h4>
+      <ul>
+        <li>フィットが収束しない → 初期ノイズや飽和区間を除いて再読み込み。</li>
+        <li>予測と実測が合わない → r<sub>assoc</sub> と (k′<sub>1</sub>, b′) が噛み合わない場合、r<sub>nick</sub> の変動を疑って提案値を試す。</li>
+        <li>ヘアピンらしい挙動 → G を下げると急に発振しない等の兆候があればヘアピン補正を ON に。</li>
+      </ul>
+
+      <h4>7. 用語メモ</h4>
+      <ul>
+        <li>k<sub>1</sub>, b: Prey-only の増殖係数（修飾後は k′<sub>1</sub>, b′）。</li>
+        <li>g = (k<sub>1</sub> · G) / (k<sub>2</sub> · K<sub>m,P</sub>)、β = (b · k<sub>2</sub> · K<sub>m,P</sub><sup>2</sup>) / k<sub>1</sub>。</li>
+        <li>修飾三要素: r<sub>assoc</sub>, r<sub>poly</sub>, r<sub>nick</sub>。</li>
+      </ul>
+
+      <p>
+        このワークベンチは「修飾の有無」だけでなく「どの修飾が、何を、どれだけ動かしているのか」を切り分けるための道具です。設計 → 予測 → 実測 → 同定 → 再予測のループを気軽に回してみてください。
+      </p>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="./workbench.js"></script>

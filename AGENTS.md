@@ -39,20 +39,23 @@ A Rust + WebAssembly + Canvas web app to explore a DNA-based predator–prey osc
     - Explanation section (with `web/equation.png`)
     - Cross-page nav (Simulator, Bifurcation, Heatmap)
     - Display fix: time-series “Prey” is plotted as `400 − N` (baseline ~400 nM), while phase uses raw `N` vs `P`
+    - Baseline overlays and Δ summaries are driven by Workbench analysis prefs (legend updates per series)
   - Bifurcation (`/bifurcation/`)
     - Sweep one parameter across a range; after transients (tail window), compute `P` min/max and plot them
     - UI for parameter/range/steps, simulation window, and base parameters
     - Preset: “Birth of oscillations (G sweep)” — reproduces SI Fig. S11-like behavior
+    - Supports overlay cards/baseline from Workbench; each series is color/dash keyed in the legend
   - Heatmap (`/heatmap/`)
     - Sweep two parameters over a grid; evaluate either amplitude (P max−min) or period (mean peak spacing)
     - Turbo colormap rendering with legend
     - Presets:
-      - “Amino-acid modification (period)”: X=`G`, Y=`mod_factor`, metric=`period`
+      - “Amino-acid modification (period)”: X=`G`, Y=`k1`, metric=`period` (use Workbench overlays/Δ to compare modification cards)
       - “Enzyme balance & stability (amplitude)”: X=`G`, Y=`rec`, metric=`amplitude`
+    - Can compute a baseline reference and render Δ (active − baseline) maps; overlay cards report summary deltas vs the selected reference
 
 - Defaults and Presets (from SI Table S5, PP1 optimized / Fig.2 & S11)
   - Common base values used in pages and presets:
-    - `pol=3.7`, `rec=32.5`, `G=150`, `k1=0.0020`, `k2=0.0031`, `kN=0.0210`, `kP=0.0047`, `b=0.000048`, `KmP=34`, `N0=10`, `P0=10`, `mod_factor=1.0`
+    - `pol=3.7`, `rec=32.5`, `G=150`, `k1=0.0020`, `k2=0.0031`, `kN=0.0210`, `kP=0.0047`, `b=0.000048`, `KmP=34`, `N0=10`, `P0=10` (modification scaling is now managed via Workbench cards; legacy `mod_factor` remains internally at 1.0)
     - Typical windows: `t_end=2000–3000` min, `dt=0.5` min, tail window `50–60%`
 
 ## Build & Run

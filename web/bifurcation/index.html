@@ -8,6 +8,11 @@
   .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; box-shadow:0 1px 2px rgba(0,0,0,.03); }
   .note { color:var(--muted); font-size:.92rem; line-height:1.6; margin-top:8px; }
   canvas { background:#fff; border:1px solid var(--line); border-radius:10px; width:100%; height:460px; }
+  .legend { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin:10px 0; color:#0f172a; }
+  .legend-item { display:inline-flex; gap:10px; align-items:center; padding:4px 10px; border:1px solid var(--line); border-radius:10px; background:#f8fafc; font-size:.9rem; }
+  .legend-item strong { font-weight:600; color:#0f172a; }
+  .legend-mode { display:inline-flex; gap:6px; align-items:center; color:#475569; font-size:.84rem; }
+  .swatch { display:inline-block; width:12px; height:12px; border-radius:2px; }
   .rows { display:grid; grid-template-columns: 160px 1fr 120px; gap:10px 10px; align-items:center; }
   .row { display:contents; }
   input[type="range"] { width:100%; }
@@ -29,6 +34,8 @@
     <a href="../bifurcation/">Bifurcation</a>
     <span>·</span>
     <a href="../heatmap/">Heatmap</a>
+    <span>·</span>
+    <a href="../workbench/">Modification Workbench</a>
   </div>
 
   <div class="card">
@@ -36,6 +43,7 @@
     <div style="display:flex; gap:16px; flex-wrap:wrap;">
       <div style="flex:1 1 420px; min-width:360px;">
         <canvas id="cv" width="1200" height="480"></canvas>
+        <div class="legend" id="legend"></div>
         <div id="status" class="note"></div>
       </div>
       <div class="card" style="flex:1 1 320px; min-width:320px;">
@@ -58,7 +66,6 @@
               <option value="pol">pol</option>
               <option value="rec">rec</option>
               <option value="KmP">KP (Km,P)</option>
-              <option value="mod_factor">mod_factor</option>
             </select>
             <div></div>
           </div>
@@ -104,7 +111,6 @@
           <div class="row"><label>KmP</label><input id="KmP" type="number" step="1" value="34"><div></div></div>
           <div class="row"><label>N0 [nM]</label><input id="N0" type="number" step="0.1" value="10"><div></div></div>
           <div class="row"><label>P0 [nM]</label><input id="P0" type="number" step="0.1" value="10"><div></div></div>
-          <div class="row"><label>mod_factor</label><input id="mod_factor" type="number" step="0.01" value="1"><div></div></div>
         </div>
         <div class="buttons">
           <button id="runBtn">Run</button>

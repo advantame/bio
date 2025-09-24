@@ -28,6 +28,8 @@
     <a href="../bifurcation/">Bifurcation</a>
     <span>·</span>
     <a href="../heatmap/">Heatmap</a>
+    <span>·</span>
+    <a href="../workbench/">Modification Workbench</a>
   </div>
 
   <div class="card">
@@ -55,7 +57,6 @@
             <select id="xParam">
               <option value="G">G</option>
               <option value="k1">k1</option>
-              <option value="mod_factor">mod_factor</option>
               <option value="pol">pol</option>
               <option value="rec">rec</option>
               <option value="KmP">KmP</option>
@@ -70,7 +71,6 @@
             <label for="yParam">Yパラメータ</label>
             <select id="yParam">
               <option value="k1">k1</option>
-              <option value="mod_factor">mod_factor</option>
               <option value="G">G</option>
               <option value="pol">pol</option>
               <option value="rec">rec</option>
@@ -78,9 +78,9 @@
             </select>
             <div></div>
           </div>
-          <div class="row"><label for="yMin">Y最小</label><input id="yMin" type="number" step="0.01" value="0.2"><div></div></div>
-          <div class="row"><label for="yMax">Y最大</label><input id="yMax" type="number" step="0.01" value="1.5"><div></div></div>
-          <div class="row"><label for="ySteps">Yステップ</label><input id="ySteps" type="number" step="1" value="30"><div></div></div>
+          <div class="row"><label for="yMin">Y最小</label><input id="yMin" type="number" step="0.0001" value="0.0012"><div></div></div>
+          <div class="row"><label for="yMax">Y最大</label><input id="yMax" type="number" step="0.0001" value="0.0032"><div></div></div>
+          <div class="row"><label for="ySteps">Yステップ</label><input id="ySteps" type="number" step="1" value="16"><div></div></div>
 
           <div class="row">
             <label for="metric">指標</label>
@@ -107,8 +107,6 @@
           <div class="row"><label>KmP</label><input id="KmP" type="number" step="1" value="34"><div></div></div>
           <div class="row"><label>N0 [nM]</label><input id="N0" type="number" step="0.1" value="10"><div></div></div>
           <div class="row"><label>P0 [nM]</label><input id="P0" type="number" step="0.1" value="10"><div></div></div>
-          <div class="row"><label>mod_factor</label><input id="mod_factor" type="number" step="0.01" value="1"><div></div></div>
-
         </div>
         <div class="buttons">
           <button id="runBtn">Run</button>
