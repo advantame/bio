@@ -14,13 +14,18 @@ import {
   setOverlayModificationIds,
   upsertModification,
 } from '../modifications.js';
+import { parsePreyCsvFile } from './fit/importer.js';
+import { fitPreyDataset, deriveModificationFactors } from './fit/prey_fit.js';
 
 const BASE_CONTEXT = {
+  pol: 3.7,
+  rec: 32.5,
   k1: 0.0020,
   b: 0.000048,
   G: 150,
   k2: 0.0031,
   KmP: 34,
+  N0: 10,
 };
 
 const elements = {
@@ -48,6 +53,23 @@ const elements = {
     linkerLength: document.getElementById('linkerLength'),
     linkerPolarity: document.getElementById('linkerPolarity'),
     notes: document.getElementById('notes'),
+  },
+  fit: {
+    dropZone: document.getElementById('fitDropZone'),
+    browse: document.getElementById('fitBrowse'),
+    fileInput: document.getElementById('fitFile'),
+    meta: document.getElementById('fitMeta'),
+    warnings: document.getElementById('fitWarnings'),
+    results: document.getElementById('fitResults'),
+    pol: document.getElementById('fitPol'),
+    G: document.getElementById('fitG'),
+    timeUnit: document.getElementById('fitTimeUnit'),
+    baseline: document.getElementById('fitBaseline'),
+    N0: document.getElementById('fitN0'),
+    loss: document.getElementById('fitLoss'),
+    crosstalkYG: document.getElementById('fitCrosstalkYG'),
+    crosstalkGY: document.getElementById('fitCrosstalkGY'),
+    greenScale: document.getElementById('fitGreenScale'),
   },
 };
 
@@ -220,6 +242,221 @@ function updateStatusBanner() {
   banner.textContent = `Active modification: ${mod.label || 'Unnamed'} · k1'=${derived.k1Eff.toExponential(3)} · b'=${derived.bEff.toExponential(3)} · β'=${derived.betaEff.toFixed(3)}`;
 }
 
+// ---------- Fit helpers ----------
+function getFitFormValues(){
+  const fit = elements.fit;
+  if (!fit) return null;
+  const polVal = Number.parseFloat(fit.pol?.value);
+  const gVal = Number.parseFloat(fit.G?.value);
+  const baselinePoints = Math.max(1, Number.parseInt(fit.baseline?.value, 10) || 10);
+  const greenScale = Number.parseFloat(fit.greenScale?.value);
+  const N0Val = Number.parseFloat(fit.N0?.value);
+  return {
+    importer: {
+      timeUnit: fit.timeUnit?.value || 's',
+      baselinePoints,
+      greenScale: Number.isFinite(greenScale) ? greenScale : 1,
+      crossTalk: {
+        fromYellowToGreen: Number.parseFloat(fit.crosstalkYG?.value) || 0,
+        fromGreenToYellow: Number.parseFloat(fit.crosstalkGY?.value) || 0,
+      },
+    },
+    solver: {
+      pol: Number.isFinite(polVal) && polVal > 0 ? polVal : BASE_CONTEXT.pol,
+      G: Number.isFinite(gVal) && gVal > 0 ? gVal : BASE_CONTEXT.G,
+      N0: Number.isFinite(N0Val) && N0Val > 0 ? N0Val : BASE_CONTEXT.N0,
+      loss: fit.loss?.value === 'huber' ? 'huber' : 'ols',
+    },
+  };
+}
+
+function setFitMeta(text){
+  if (elements.fit?.meta) elements.fit.meta.textContent = text || '';
+}
+
+function setFitWarnings(messages){
+  const target = elements.fit?.warnings;
+  if (!target) return;
+  if (messages && messages.length){
+    target.hidden = false;
+    target.textContent = messages.join(' ');
+  } else {
+    target.hidden = true;
+    target.textContent = '';
+  }
+}
+
+function renderFitResults(dataset, fit, factors, solver, fileName){
+  const container = elements.fit?.results;
+  if (!container) return;
+  container.innerHTML = '';
+  if (!fit) return;
+  const cards = [
+    {
+      title: "k₁' [nM⁻¹ min⁻¹]",
+      body: `${fit.k1.toExponential(3)} (95% CI ${fit.k1CI[0].toExponential(3)} – ${fit.k1CI[1].toExponential(3)})`,
+    },
+    {
+      title: "b' [nM⁻¹]",
+      body: `${fit.b.toExponential(3)} (95% CI ${fit.bCI[0].toExponential(3)} – ${fit.bCI[1].toExponential(3)})`,
+    },
+    {
+      title: 'r_poly',
+      body: factors && Number.isFinite(factors.rPoly) ? factors.rPoly.toFixed(3) : '—',
+    },
+    {
+      title: 'r_nick',
+      body: factors && Number.isFinite(factors.rNick) ? factors.rNick.toFixed(3) : '—',
+    },
+    {
+      title: 'R²',
+      body: `${(fit.diagnostics.r2 * 100).toFixed(2)}%`,
+    },
+    {
+      title: 'Loss / points',
+      body: `${solver.loss.toUpperCase()} • ${dataset.time.length} pts${fit.diagnostics.skipped.length ? ` (skipped ${fit.diagnostics.skipped.length})` : ''}`,
+    },
+  ];
+  cards.forEach((card) => {
+    const div = document.createElement('div');
+    div.className = 'fit-result-card';
+    const h = document.createElement('h4');
+    h.textContent = card.title;
+    const p = document.createElement('p');
+    p.textContent = card.body;
+    div.appendChild(h);
+    div.appendChild(p);
+    container.appendChild(div);
+  });
+  const duration = dataset.time[dataset.time.length - 1] - dataset.time[0];
+  const dt = dataset.time.length > 1 ? duration / (dataset.time.length - 1) : 0;
+  const meta = [
+    fileName ? `File: ${fileName}` : null,
+    `Points: ${dataset.time.length}`,
+    `Range: ${duration.toFixed(2)} min`,
+    `Δt ≈ ${dt.toFixed(3)} min`,
+  ].filter(Boolean).join(' • ');
+  setFitMeta(meta);
+}
+
+function gatherFitWarnings(datasetWarnings, fitDiagnostics){
+  const msgs = [];
+  if (datasetWarnings && datasetWarnings.length) msgs.push(...datasetWarnings);
+  if (fitDiagnostics && fitDiagnostics.skipped && fitDiagnostics.skipped.length){
+    msgs.push(`Skipped ${fitDiagnostics.skipped.length} rows due to invalid concentrations.`);
+  }
+  return msgs;
+}
+
+async function processFitFile(file){
+  const opts = getFitFormValues();
+  if (!opts) return;
+  setFitMeta('Parsing CSV…');
+  setFitWarnings(null);
+  if (elements.fit?.results) elements.fit.results.innerHTML = '';
+  try {
+    const dataset = await parsePreyCsvFile(file, {
+      timeUnit: opts.importer.timeUnit,
+      baselinePoints: opts.importer.baselinePoints,
+      greenScale: opts.importer.greenScale,
+      crossTalk: opts.importer.crossTalk,
+    });
+
+    const N0 = opts.solver.N0;
+    if (!Number.isFinite(N0) || N0 <= 0) {
+      throw new Error('Initial concentration N₀ must be a positive number');
+    }
+
+    const concentrations = Array.from(dataset.concentration, (v) => v + N0);
+    if (concentrations.some((v) => v <= 0 || !Number.isFinite(v))) {
+      throw new Error('Concentration values became non-positive after applying N₀ and scale. Check inputs.');
+    }
+
+    const fit = fitPreyDataset(
+      { time: Array.from(dataset.time), concentration: concentrations },
+      { pol: opts.solver.pol, G: opts.solver.G, N0, loss: opts.solver.loss }
+    );
+
+    const mod = currentMod();
+    let factors = null;
+    if (mod) {
+      const rAssoc = resolveRAssoc(mod);
+      factors = deriveModificationFactors(
+        { k1: BASE_CONTEXT.k1, b: BASE_CONTEXT.b },
+        { k1: fit.k1, b: fit.b },
+        { rAssoc }
+      );
+      updateMod({
+        rPoly: Number.isFinite(factors.rPoly) ? factors.rPoly : mod.rPoly,
+        rNick: Number.isFinite(factors.rNick) ? factors.rNick : mod.rNick,
+        k1Eff: fit.k1,
+        bEff: fit.b,
+        lastFit: {
+          timestamp: new Date().toISOString(),
+          fileName: file.name,
+          options: opts,
+          dataset: {
+            points: dataset.time.length,
+            separator: dataset.separator,
+            baseline: dataset.baseline,
+          },
+          result: fit,
+          factors,
+        },
+      });
+    }
+
+    const warnings = gatherFitWarnings(dataset.warnings, fit.diagnostics);
+    if (!mod) warnings.unshift('Select a modification card before applying fit results.');
+    setFitWarnings(warnings);
+    renderFitResults({ time: Array.from(dataset.time) }, fit, factors, opts.solver, file.name);
+  } catch (err) {
+    console.error('[fit] failed', err);
+    setFitMeta('Fit failed.');
+    setFitWarnings([err.message || String(err)]);
+  }
+}
+
+function setupFitSection(){
+  const fit = elements.fit;
+  if (!fit || !fit.dropZone) return;
+  const dropZone = fit.dropZone;
+  const clearDrag = () => dropZone.classList.remove('dragover');
+
+  dropZone.addEventListener('dragover', (evt) => {
+    evt.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  dropZone.addEventListener('dragleave', clearDrag);
+  dropZone.addEventListener('drop', (evt) => {
+    evt.preventDefault();
+    clearDrag();
+    const file = evt.dataTransfer?.files?.[0];
+    if (file) processFitFile(file);
+  });
+  dropZone.addEventListener('click', (evt) => {
+    if (evt.target === fit.browse) return; // browse button handles its own click
+    fit.fileInput?.click();
+  });
+  dropZone.addEventListener('keypress', (evt) => {
+    if (evt.key === 'Enter' || evt.key === ' ') {
+      evt.preventDefault();
+      fit.fileInput?.click();
+    }
+  });
+
+  fit.browse?.addEventListener('click', (evt) => {
+    evt.preventDefault();
+    fit.fileInput?.click();
+  });
+
+  fit.fileInput?.addEventListener('change', (evt) => {
+    const file = evt.target.files?.[0];
+    if (file) processFitFile(file);
+    evt.target.value = '';
+  });
+}
+
 function updateBindingTable() {
   const variants = buildSimulationVariants(BASE_CONTEXT);
   const table = elements.bindingTable;
@@ -364,6 +601,8 @@ function init() {
   Object.values(elements.fields).forEach((field) => {
     field?.addEventListener('input', onFieldChange);
   });
+
+  setupFitSection();
 }
 
 init();

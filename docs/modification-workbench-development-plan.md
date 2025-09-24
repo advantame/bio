@@ -1,13 +1,13 @@
 # Modification Workbench Development Plan
 
-_Last updated: 2025-09-24 (post overlay integration)_
+_Last updated: 2025-09-24 (post Fit ingestion/fitting integration)_
 
 This plan expands the roadmap into actionable tasks with checkpoints, owners (default: current agent), and acceptance criteria. The intent is to keep development unblocked even if the Codex session resets.
 
 ## 0. Snapshot
-- **Repo state**: `main` at `feat: integrate modification workbench across simulator views` (c26928f...).
-- **Delivered**: modification card storage, simulator & sweep overlays, heatmap variant selector.
-- **Outstanding**: Fit & Library sections, preset migration, regression suites, documentation refresh.
+- **Repo state**: `main` after `docs: note commit and documentation discipline for agents` (702ff68...).
+- **Delivered**: modification card storage, simulator & sweep overlays, heatmap variant selector, prey-only CSV ingestion + fitting with Workbench integration.
+- **Outstanding**: GN titration fit, Fit logging/export, Library section, preset migration, regression suites, documentation refresh.
 
 ## 1. Milestone Breakdown
 
@@ -16,15 +16,14 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 
 | Task | Details | Output | Notes |
 | --- | --- | --- | --- |
-| A1. CSV ingestion module | Parse `time,F_green[,F_yellow]` with options from `CsvImportOptions`; apply cross-talk, baseline correction, unit scaling. | `web/workbench/fit/importer.js` (new) + unit-test stubs. | Mirror spec §7.1. Fail-fast on malformed headers. |
-| A2. Prey-only solver | Implement LM fitter (prefer JS + WASM math). Accept optional Huber loss. Compute covariance → CI. | `fit_preyonl y.ts` (or `.js`) with exports consumed by Fit UI. | Use deterministic seed for any random init (spec §4, §8.1). |
+| **A1. CSV ingestion module** ✅ | Parse `time,F_green[,F_yellow]` with options from `CsvImportOptions`; apply cross-talk, baseline correction, unit scaling. | `web/workbench/fit/importer.js` | Mirrors spec §7.1. Tests pending. |
+| **A2. Prey-only solver** ✅ | Linearised estimator with optional Huber loss; compute covariance → CI. | `web/workbench/fit/prey_fit.js` | Deterministic; returns diagnostics + factors. |
 | A3. GN titration helper | Fit binding curve to recover `K_a^{GN}`; map to `r_assoc`. | Helper returning `r_assoc`, CI, diagnostics. | Provide linear fallback if saturation fit fails (§8.3). |
-| A4. Factor reconciliation | Combine baseline `(k1,b)` and fitted `(k1',b')` to solve for `r_poly` / `r_nick`; warn on CI conflicts. | Integration layer mutating the active card. | Use spec eqn in §4 and §8.2. |
-| A5. Fit UI | Build Fit subsection (accordions for datasets, results cards, warnings). | UI in `workbench.js`. | Include drag/drop and clipboard paste. |
+| **A4. Factor reconciliation** ✅ | Combine baseline `(k1,b)` and fitted `(k1',b')` → `r_poly`, `r_nick`; warn on CI conflicts. | Integrated in `workbench.js` Fit flow. | Uses spec eqns (§4, §8.2). |
+| **A5. Fit UI** ✅ | Build Fit subsection (dropzone, controls, results cards, warnings). | `workbench/index.html` + `workbench.js`. | Handles drag/drop and browse. |
 | A6. Logging & audit | Persist `FitResult` per spec §6.1; allow export. | LocalStorage payload + download JSON. | Keep timestamp + dataset hash. |
 
-**Exit criteria:** Fit CSV → cards update → simulator overlays change without reload; CI available for r
-g.
+**Exit criteria:** Fit CSV → cards update → simulator overlays change without reload; CI available for derived factors. _Status:_ CSV ingestion and prey-only fit delivered; GN titration + logging/export remain pending.
 
 ### Milestone B — Library & Reporting
 | Task | Details |
@@ -61,8 +60,10 @@ g.
 - **Week 3:** Complete preset migration, add regression suite, polish docs.
 
 ## 5. Next Steps Checklist
-- [ ] Implement CSV importer + preliminary unit tests.
-- [ ] Draft Fit UI skeleton and wire to new modules.
+- [x] Implement CSV importer (unit tests outstanding).
+- [x] Draft Fit UI skeleton and wire to new modules.
+- [ ] Implement GN titration helper and integrate into Fit flow.
+- [ ] Add Fit logging/export (JSON/CSV hooks).
 - [ ] Define data structures for Library filters.
 - [ ] Enumerate regression scenarios and capture baselines.
 
