@@ -71,6 +71,10 @@ const elements = {
     crosstalkYG: document.getElementById('fitCrosstalkYG'),
     crosstalkGY: document.getElementById('fitCrosstalkGY'),
     greenScale: document.getElementById('fitGreenScale'),
+    actions: {
+      exportJson: document.getElementById('fitExportJson'),
+      exportCsv: document.getElementById('fitExportCsv'),
+    },
     titration: {
       dropZone: document.getElementById('fitTitrationDropZone'),
       browse: document.getElementById('fitTitrationBrowse'),
@@ -233,6 +237,8 @@ function populateDerived() {
   if (warnings.length) {
     warningField.innerHTML = `<strong>Warnings:</strong> ${warnings.join(' ')}`;
   }
+
+  updateFitActions();
 }
 
 function updateStatusBanner() {
@@ -252,6 +258,33 @@ function updateStatusBanner() {
   const derived = computeEffectiveParameters(BASE_CONTEXT, mod);
   banner.hidden = false;
   banner.textContent = `Active modification: ${mod.label || 'Unnamed'} · k1'=${derived.k1Eff.toExponential(3)} · b'=${derived.bEff.toExponential(3)} · β'=${derived.betaEff.toFixed(3)}`;
+}
+
+function appendFitHistory(entry, mod) {
+  const history = mod.fitHistory ? [...mod.fitHistory] : [];
+  history.push(entry);
+  return history.slice(-20);
+}
+
+function updateFitActions() {
+  const actions = elements.fit?.actions;
+  if (!actions) return;
+  const mod = currentMod();
+  const hasHistory = Boolean(mod && mod.fitHistory && mod.fitHistory.length);
+  if (actions.exportJson) actions.exportJson.disabled = !hasHistory;
+  if (actions.exportCsv) actions.exportCsv.disabled = !hasHistory;
+}
+
+function downloadTextFile(filename, text, mime = 'text/plain') {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ---------- Fit helpers ----------
@@ -391,6 +424,7 @@ async function processFitFile(file){
 
     const mod = currentMod();
     let factors = null;
+    let warnings = gatherFitWarnings(dataset.warnings, fit.diagnostics);
     if (mod) {
       const rAssoc = resolveRAssoc(mod);
       factors = deriveModificationFactors(
@@ -398,28 +432,43 @@ async function processFitFile(file){
         { k1: fit.k1, b: fit.b },
         { rAssoc }
       );
+      const timestamp = new Date().toISOString();
+      const historyEntry = {
+        type: 'prey',
+        timestamp,
+        fileName: file.name,
+        solver: { ...opts.solver },
+        dataset: {
+          points: dataset.time.length,
+          separator: dataset.separator,
+          baseline: dataset.baseline,
+          duration: dataset.time[dataset.time.length - 1] - dataset.time[0],
+        },
+        metrics: {
+          k1: fit.k1,
+          k1CI: fit.k1CI,
+          b: fit.b,
+          bCI: fit.bCI,
+          r2: fit.diagnostics.r2,
+          rPoly: factors?.rPoly ?? null,
+          rNick: factors?.rNick ?? null,
+        },
+        warnings,
+      };
+      const fitHistory = appendFitHistory(historyEntry, mod);
       updateMod({
         rPoly: Number.isFinite(factors.rPoly) ? factors.rPoly : mod.rPoly,
         rNick: Number.isFinite(factors.rNick) ? factors.rNick : mod.rNick,
         k1Eff: fit.k1,
         bEff: fit.b,
-        lastFit: {
-          timestamp: new Date().toISOString(),
-          fileName: file.name,
-          options: opts,
-          dataset: {
-            points: dataset.time.length,
-            separator: dataset.separator,
-            baseline: dataset.baseline,
-          },
-          result: fit,
-          factors,
-        },
+        lastFit: historyEntry,
+        fitHistory,
       });
+      updateFitActions();
+    } else {
+      warnings = ['Select a modification card before applying fit results.'].concat(warnings);
     }
 
-    const warnings = gatherFitWarnings(dataset.warnings, fit.diagnostics);
-    if (!mod) warnings.unshift('Select a modification card before applying fit results.');
     setFitWarnings(warnings);
     renderFitResults({ time: Array.from(dataset.time) }, fit, factors, opts.solver, file.name);
   } catch (err) {
@@ -548,16 +597,30 @@ async function processTitrationFile(file){
     const mod = currentMod();
     let warnings = [...(dataset.warnings || [])];
     if (mod) {
+      const timestamp = new Date().toISOString();
+      const historyEntry = {
+        type: 'titration',
+        timestamp,
+        fileName: file.name,
+        options: opts,
+        metrics: {
+          Ka: fit.Ka,
+          KaCI: fit.KaCI,
+          r2: fit.r2,
+          rAssoc: Number.isFinite(rAssoc) ? rAssoc : null,
+          F0: fit.F0,
+          dF: fit.dF,
+        },
+        warnings,
+      };
+      const fitHistory = appendFitHistory(historyEntry, mod);
       updateMod({
         rAssoc: Number.isFinite(rAssoc) ? rAssoc : mod.rAssoc,
         deltaDeltaGAssoc: undefined,
-        lastTitration: {
-          timestamp: new Date().toISOString(),
-          fileName: file.name,
-          result: fit,
-          options: opts,
-        },
+        lastTitration: historyEntry,
+        fitHistory,
       });
+      updateFitActions();
     } else {
       warnings.unshift('Select a modification card before applying titration results.');
     }
@@ -608,6 +671,54 @@ function setupTitrationSection(){
     if (file) processTitrationFile(file);
     evt.target.value = '';
   });
+}
+
+function exportLatestFitJson(){
+  const mod = currentMod();
+  if (!mod || !mod.fitHistory || !mod.fitHistory.length) return;
+  const entry = mod.fitHistory[mod.fitHistory.length - 1];
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    modification: {
+      id: mod.id,
+      label: mod.label,
+    },
+    entry,
+  };
+  downloadTextFile(`fit-${mod.id}-${Date.now()}.json`, JSON.stringify(payload, null, 2), 'application/json');
+}
+
+function csvEscape(value){
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function exportFitHistoryCsv(){
+  const mod = currentMod();
+  if (!mod || !mod.fitHistory || !mod.fitHistory.length) return;
+  const header = ['timestamp','type','file','k1','b','r_poly','r_nick','Ka','r_assoc','r2'];
+  const rows = [header.join(',')];
+  mod.fitHistory.forEach((entry) => {
+    const metrics = entry.metrics || {};
+    const row = [
+      entry.timestamp,
+      entry.type,
+      entry.fileName || '',
+      metrics.k1 ?? '',
+      metrics.b ?? '',
+      metrics.rPoly ?? '',
+      metrics.rNick ?? '',
+      metrics.Ka ?? '',
+      metrics.rAssoc ?? '',
+      metrics.r2 ?? '',
+    ].map(csvEscape);
+    rows.push(row.join(','));
+  });
+  downloadTextFile(`fit-history-${mod.id}.csv`, rows.join('\n'), 'text/csv');
 }
 
 function updateBindingTable() {
@@ -757,6 +868,13 @@ function init() {
 
   setupFitSection();
   setupTitrationSection();
+  if (elements.fit?.actions?.exportJson) {
+    elements.fit.actions.exportJson.addEventListener('click', exportLatestFitJson);
+  }
+  if (elements.fit?.actions?.exportCsv) {
+    elements.fit.actions.exportCsv.addEventListener('click', exportFitHistoryCsv);
+  }
+  updateFitActions();
 }
 
 init();

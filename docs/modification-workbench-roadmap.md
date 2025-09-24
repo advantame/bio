@@ -11,7 +11,7 @@ This note captures the immediate follow-on work agreed after integrating the mod
    - ✅ CSV import pipeline: `time, F_green[, F_yellow]` with cross-talk correction and baseline removal (§7.1).
    - ✅ Prey-only estimator with optional Huber loss, covariance → CI, and factor reconciliation applied to the active card.
    - ✅ GN titration helper: fit `K_a^{GN}`, derive `r_assoc`, reconcile `r_nick`, warn on CI conflicts (§8.2, §8.3).
-   - ◻ Fit logging/export: persist `FitResult` metadata and offer download hooks (spec §6.1).
+   - ✅ Fit logging/export: persist `FitResult` metadata and offer download hooks (spec §6.1).
 2. **Implement the Library section** (spec §5.5).
    - Persist/compare modification cards with physicochemical filters (charge, aromaticity, linker length).
    - Provide comparison launchers that open bifurcation/heatmap overlays with selected cards.

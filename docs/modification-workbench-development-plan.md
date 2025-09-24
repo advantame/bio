@@ -21,7 +21,7 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 | **A3. GN titration helper** ✅ | Fit binding curve to recover `K_a^{GN}`; map to `r_assoc`. | `web/workbench/fit/titration.js` + Workbench integration. | Uses 1D log-space search; warns on singularities (§8.3). |
 | **A4. Factor reconciliation** ✅ | Combine baseline `(k1,b)` and fitted `(k1',b')` → `r_poly`, `r_nick`; warn on CI conflicts. | Integrated in `workbench.js` Fit flow. | Uses spec eqns (§4, §8.2). |
 | **A5. Fit UI** ✅ | Build Fit subsection (dropzone, controls, results cards, warnings). | `workbench/index.html` + `workbench.js`. | Handles drag/drop and browse. |
-| A6. Logging & audit | Persist `FitResult` per spec §6.1; allow export. | LocalStorage payload + download JSON. | Keep timestamp + dataset hash. |
+| **A6. Logging & audit** ✅ | Persist `FitResult` per spec §6.1; allow export. | Fit history stored on card + JSON/CSV exports. | Includes timestamp, options, metrics. |
 
 **Exit criteria:** Fit CSV → cards update → simulator overlays change without reload; CI available for derived factors. _Status:_ CSV ingestion and prey-only fit delivered; GN titration + logging/export remain pending.
 
@@ -63,7 +63,7 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 - [x] Implement CSV importer (unit tests outstanding).
 - [x] Draft Fit UI skeleton and wire to new modules.
 - [x] Implement GN titration helper and integrate into Fit flow.
-- [ ] Add Fit logging/export (JSON/CSV hooks).
+- [x] Add Fit logging/export (JSON/CSV hooks).
 - [ ] Define data structures for Library filters.
 - [ ] Enumerate regression scenarios and capture baselines.
 

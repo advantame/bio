@@ -61,6 +61,7 @@
   .fit-result-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; }
   .fit-result-card h4 { margin:0 0 6px; font-size:0.95rem; color:#0f172a; }
   .fit-result-card p { margin:0; font-size:0.9rem; color:#334155; }
+  .fit-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
 </style>
 <div class="wrap">
   <div class="nav">
@@ -218,6 +219,10 @@
       <div class="note" id="fitMeta"></div>
       <div class="note warn" id="fitWarnings" hidden></div>
       <div class="fit-results" id="fitResults"></div>
+      <div class="fit-actions">
+        <button id="fitExportJson" type="button">Export latest fit (JSON)</button>
+        <button id="fitExportCsv" type="button">Export fit history (CSV)</button>
+      </div>
 
       <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0 12px;">
 
