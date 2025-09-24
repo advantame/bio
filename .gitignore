@@ -11,3 +11,5 @@ Thumbs.db
 *.swo
 .idea/
 .vscode/
+
+docs/Supplementary Information.md
