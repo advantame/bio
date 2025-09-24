@@ -71,6 +71,24 @@ async function regressionOscillation() {
   return { amplitude, oscillatory, points: P.length };
 }
 
+async function invariantChecks(){
+  const core = await loadCore();
+  await core.initWasm();
+  const base = BASE_PARAMS;
+  const rAssoc = 2;
+  const rPoly = 0.5;
+  const rNick = 1.5;
+  const mod = { rAssoc, rPoly, rNick };
+  const { computeEffectiveParameters } = await import('../web/modifications.js');
+  const derived = computeEffectiveParameters(base, mod);
+  const tolerance = 1e-6;
+  const baseBeta = (base.b * base.k2 * base.KmP * base.KmP) / base.k1;
+  const expectedBeta = baseBeta / rPoly;
+  const betaOk = Math.abs(derived.betaEff - expectedBeta) < tolerance;
+  const gOk = Math.abs((derived.gEff / ((base.k1 * base.G)/(base.k2 * base.KmP))) - (rAssoc * rPoly / rNick)) < 1e-6;
+  return { betaOk, gOk, derivedBeta: derived.betaEff, expectedBeta, derivedFactor: derived.gEff, mod }; 
+}
+
 async function sweepBifurcation() {
   const core = await loadCore();
   await core.initWasm();
@@ -135,6 +153,8 @@ async function main() {
   try {
     const osc = await regressionOscillation();
     formatResult('Oscillation baseline', osc);
+    const inv = await invariantChecks();
+    formatResult('Invariant checks', inv);
     const bif = await sweepBifurcation();
     formatResult('Bifurcation sweep (performance)', bif);
     const heat = await sweepHeatmap();
