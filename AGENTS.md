@@ -49,7 +49,7 @@ A Rust + WebAssembly + Canvas web app to explore a DNA-based predator–prey osc
     - Sweep two parameters over a grid; evaluate either amplitude (P max−min) or period (mean peak spacing)
     - Turbo colormap rendering with legend and a selector to toggle baseline/active/overlay grids and Δ vs baseline views
     - Presets:
-      - “Amino-acid modification (period)”: X=`G`, Y=`k1`, metric=`period` (active modification maps k1/b internally)
+      - “Amino-acid modification (period)”: X=`G`, Y=`ΔΔG_assoc` (converted to `r_assoc`), metric=`period`
       - “Enzyme balance & stability (amplitude)”: X=`G`, Y=`rec`, metric=`amplitude`
   - Modification Workbench (`/workbench/`)
     - Manage modification cards (r_assoc / r_poly / r_nick, ΔΔG inputs, linker metadata)

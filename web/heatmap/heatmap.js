@@ -1,5 +1,5 @@
 import { initWasm, runSimulationPhysical } from "../core.js";
-import { buildSimulationVariants } from "../modifications.js";
+import { buildSimulationVariants, GAS_CONSTANT_KCAL } from "../modifications.js";
 
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d', { alpha:false });
@@ -25,6 +25,46 @@ const OVERLAY_COLORS = ['#9333ea', '#22c55e', '#f97316', '#0ea5e9'];
 
 let variantResults = [];
 let gridContext = null;
+
+const DEFAULT_TEMP_K = 37 + 273.15;
+
+function ddgToRAssoc(ddg){
+  return Math.exp(-ddg / (GAS_CONSTANT_KCAL * DEFAULT_TEMP_K));
+}
+
+function applyAxisValue(params, name, value){
+  if (name === 'assoc_ddg') {
+    const rAssoc = ddgToRAssoc(value);
+    params.k1 *= rAssoc;
+    params.b *= rAssoc;
+    return { rAssoc };
+  }
+  if (name === 'assoc_r') {
+    const rAssoc = Math.max(value, 0);
+    params.k1 *= rAssoc;
+    params.b *= rAssoc;
+    return { rAssoc };
+  }
+  params[name] = value;
+  return {};
+}
+
+function axisLabel(name){
+  switch (name) {
+    case 'assoc_ddg': return 'ΔΔG_assoc [kcal/mol]';
+    case 'assoc_r': return 'r_assoc';
+    case 'k1': return 'k1';
+    default: return name;
+  }
+}
+
+function buildParamsForAxes(base, xAxis, yAxis){
+  const params = { ...base };
+  const meta = {};
+  if (xAxis) Object.assign(meta, applyAxisValue(params, xAxis.name, xAxis.value));
+  if (yAxis) Object.assign(meta, applyAxisValue(params, yAxis.name, yAxis.value));
+  return { params, meta };
+}
 
 function num(id){ return parseFloat(el[id].value); }
 
@@ -77,8 +117,8 @@ runBtn.addEventListener('click', async () => {
   const tailPct = Math.min(100, Math.max(1, Math.floor(num('tail'))));
 
   const bp = baseParams();
-  const previewParams = { ...bp, [xParam]: xMin, [yParam]: yMin };
-  const previewVariants = buildSimulationVariants(previewParams);
+  const preview = buildParamsForAxes(bp, { name: xParam, value: xMin }, { name: yParam, value: yMin });
+  const previewVariants = buildSimulationVariants(preview.params);
   const variantStyles = new Map();
   let overlayIdx = 0;
   for (const variant of previewVariants){
@@ -92,8 +132,8 @@ runBtn.addEventListener('click', async () => {
     const yVal = yMin + (yMax - yMin) * (j / (ny - 1));
     for (let i=0;i<nx;i++){
       const xVal = xMin + (xMax - xMin) * (i / (nx - 1));
-      const paramsBase = { ...bp, [xParam]: xVal, [yParam]: yVal };
-      const variants = buildSimulationVariants(paramsBase);
+      const { params } = buildParamsForAxes(bp, { name: xParam, value: xVal }, { name: yParam, value: yVal });
+      const variants = buildSimulationVariants(params);
       for (const variant of variants){
         if (!variantStyles.has(variant.id)){
           variantStyles.set(variant.id, colorForVariant(variant, overlayIdx));
@@ -226,7 +266,19 @@ function renderHeatmapSelection(){
   const useDelta = mode === 'delta' && variant.deltaGrid;
   const grid = useDelta ? variant.deltaGrid : variant.grid;
   const info = { label: variant.label, type: variant.type, mode: useDelta ? 'delta' : 'raw' };
-  drawHeatmap(grid, gridContext.nx, gridContext.ny, gridContext.xMin, gridContext.xMax, gridContext.yMin, gridContext.yMax, gridContext.xParam, gridContext.yParam, gridContext.metric, info);
+  drawHeatmap(
+    grid,
+    gridContext.nx,
+    gridContext.ny,
+    gridContext.xMin,
+    gridContext.xMax,
+    gridContext.yMin,
+    gridContext.yMax,
+    axisLabel(gridContext.xParam),
+    axisLabel(gridContext.yParam),
+    gridContext.metric,
+    info
+  );
   status.textContent = `Displaying ${variant.label} (${variant.type}) ${useDelta ? 'Δ vs baseline' : gridContext.metric}.`;
 }
 
@@ -252,18 +304,18 @@ function initDefaults(){
   setVal('dt', 0.5);
   setVal('tail', 60);
 
-  // Default grid (G vs k1)
+  // Default grid (G vs ΔΔG_assoc)
   setVal('xParam', 'G'); setVal('xMin', 80); setVal('xMax', 250); setVal('xSteps', 20);
-  setVal('yParam', 'k1'); setVal('yMin', 0.0015); setVal('yMax', 0.004); setVal('ySteps', 15);
+  setVal('yParam', 'assoc_ddg'); setVal('yMin', -5); setVal('yMax', 5); setVal('ySteps', 15);
   setVal('metric', 'period');
 }
 
 applyPresetBtn.addEventListener('click', () => {
   const v = presetSel.value;
-  if (v === 'mod') {
+  if (v === 'mod_assoc') {
     // アミノ酸修飾の影響（周期）
     initDefaults();
-    presetDesc.innerHTML = '修飾カードで調整された有効 k₁ を想定し、鋳型濃度 G と k₁ の組み合わせで周期がどう変化するかを可視化します。アクティブな修飾は自動で反映されます。';
+    presetDesc.innerHTML = 'ΔΔG_assoc を横軸、鋳型濃度 G を縦軸に取り、修飾の会合効果が周期に与える影響を可視化します。アクティブな修飾は自動で反映されます。';
   } else if (v === 'balance') {
     // 酵素バランスと安定性（振幅）
     // Base

@@ -36,7 +36,7 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 ### Milestone C — Preset Migration & Regression
 | Task | Details |
 | --- | --- |
-| C1. Update Heatmap defaults | Swap `mod_factor` axis → `ΔΔG_assoc` (`r_assoc`). Adjust tooltips. |
+| **C1. Update Heatmap defaults** ✅ | Swap `mod_factor` axis → `ΔΔG_assoc` (`r_assoc`). Adjust tooltips. |
 | C2. Reinstate SI presets | Ensure Simulator defaults, Bifurcation “G sweep” work unchanged. |
 | C3. New Rec variants | Add optional Rec-based presets. |
 | C4. Docs refresh | `AGENTS.md`, roadmap, user help. |

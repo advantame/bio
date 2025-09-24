@@ -17,11 +17,10 @@ This note captures the immediate follow-on work agreed after integrating the mod
    - Provide comparison launchers that open bifurcation/heatmap overlays with selected cards.
    - Export reports (CSV + PDF) containing fit summaries and derived parameters.
 3. **Restore and adapt presets with the new parameterization**.
-   - Simulator keeps SI defaults (unchanged `DEFAULTS`).
-   - Bifurcation: retain “Birth of oscillations (G sweep)” using SI defaults upon preset activation (§5.3).
-   - Heatmap: replace the legacy `mod_factor` axis with `ΔΔG_assoc` (converted to `r_assoc`) for the “modification vs G (period)” preset; keep the G×rec amplitude map (§5.3, §13).
-   - Update docs and tooltips to explain the r
-g/r_nick mapping (spec §13, §15).
+   - ✅ Heatmap: default preset now sweeps `G × ΔΔG_assoc` (converted to `r_assoc`); G×rec amplitude preset retained (§5.3, §13).
+   - ◻ Simulator keeps SI defaults (unchanged `DEFAULTS`).
+   - ◻ Bifurcation: retain “Birth of oscillations (G sweep)” using SI defaults upon preset activation (§5.3).
+   - ◻ Update docs and tooltips to explain the r_assoc / r_poly / r_nick mapping (spec §13, §15).
 4. **Guarantee “oscillation-at-start” regressions**.
    - Ensure the SI baseline (no modification) still oscillates on first load; capture as a regression test (§14.2).
    - Validate bifurcation and heatmap presets emit the expected qualitative behaviour.

@@ -47,9 +47,9 @@
         <div class="rows" style="margin-bottom:10px;">
           <div class="row">
             <label for="preset">プリセット</label>
-            <select id="preset">
-              <option value="none">選択してください</option>
-              <option value="mod">アミノ酸修飾の影響（周期）</option>
+           <select id="preset">
+             <option value="none">選択してください</option>
+              <option value="mod_assoc">アミノ酸修飾の影響（周期）</option>
               <option value="balance">酵素バランスと安定性（振幅）</option>
             </select>
             <button id="applyPreset">Apply</button>
@@ -61,6 +61,8 @@
             <select id="xParam">
               <option value="G">G</option>
               <option value="k1">k1</option>
+              <option value="assoc_ddg">ΔΔG_assoc</option>
+              <option value="assoc_r">r_assoc</option>
               <option value="pol">pol</option>
               <option value="rec">rec</option>
               <option value="KmP">KmP</option>
@@ -76,6 +78,8 @@
             <select id="yParam">
               <option value="k1">k1</option>
               <option value="G">G</option>
+              <option value="assoc_ddg">ΔΔG_assoc</option>
+              <option value="assoc_r">r_assoc</option>
               <option value="pol">pol</option>
               <option value="rec">rec</option>
               <option value="KmP">KmP</option>
@@ -128,7 +132,7 @@
       このツールは、2つの異なるパラメータを同時に変化させたときに、振動の<strong>周期（波長）や振幅</strong>といった特性がどのように変化するかを<strong>ヒートマップ</strong>として可視化する、最も高度な分析ツールです。
     </p>
     <p>
-      例えば、横軸に鋳型DNA濃度 <code>G</code>、縦軸にあなたの研究テーマである「アミノ酸修飾の効果 (<code>k₁</code>)」を設定します。すると、シミュレーションが各(G, k₁)の組み合わせにおける振動周期を計算し、その長さを色で表示した2次元マップを生成します。
+      例えば、横軸に鋳型DNA濃度 <code>G</code>、縦軸にアミノ酸修飾による自由エネルギー差 <code>ΔΔG<sub>assoc</sub></code> を設定すると、修飾強度と鋳型濃度の組み合わせごとに振動周期がどう変化するかを色で俯瞰できます。
     </p>
     <p>
       <em>文脈:</em> あなたの最終目標は「DNAへのアミノ酸結合が振動の波長をどう変えるか」を明らかにすることです。このツールはその問いに最も直接的に答えるためのものです。このヒートマップを使えば、「アミノ酸修補飾効果(<code>k₁</code>の低下)は、<code>G</code>濃度が低い領域では周期をわずかに伸ばすだけだが、<code>G</code>濃度が高い領域では周期を劇的に変化させる」といった、<strong>パラメータ間の複雑な相互作用</strong>を明らかにすることができます。これにより、シミュレーションから「xxという条件下でyyという結果が得られるはずだ」という、実験的に検証可能な<strong>具体的な仮説</strong>を生み出すことが可能になります。
