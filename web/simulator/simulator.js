@@ -318,10 +318,9 @@ async function animate(){
     for (const variant of variants){
       const style = styleForVariant(variant, overlayIndex);
       if (variant.type === 'overlay') overlayIndex++;
-      const arr = runSimulationPhysical(variant.params);
-      const len = arr.length / 2 | 0;
-      const rawN = Array.from(arr.slice(0, len));
-      const rawP = Array.from(arr.slice(len));
+      const { N: nSeries, P: pSeries } = runSimulationPhysical(variant.params);
+      const rawN = Array.from(nSeries);
+      const rawP = Array.from(pSeries);
       const prey = rawN.map((v) => 400 - v);
       seriesList.push({
         id: variant.id,
