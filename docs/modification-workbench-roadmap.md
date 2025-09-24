@@ -22,8 +22,8 @@ This note captures the immediate follow-on work agreed after integrating the mod
    - ◻ Bifurcation: retain “Birth of oscillations (G sweep)” using SI defaults upon preset activation (§5.3).
    - ◻ Update docs and tooltips to explain the r_assoc / r_poly / r_nick mapping (spec §13, §15).
 4. **Guarantee “oscillation-at-start” regressions**.
-   - Ensure the SI baseline (no modification) still oscillates on first load; capture as a regression test (§14.2).
-   - Validate bifurcation and heatmap presets emit the expected qualitative behaviour.
+   - ✅ Regression harness (`tests/regression.js`) checks SI baseline oscillation and logs bifurcation/heatmap timings.
+   - ◻ Extend harness with invariant math/unit checks (r_assoc / r_poly / r_nick) and preset qualitative assertions.
 5. **Optional enrichment**.
    - Preload dual Rec presets (e.g., 32.5 nM vs 15 nM) to explore Rec-dependent saturation, per spec §17.
 

@@ -67,8 +67,9 @@ A Rust + WebAssembly + Canvas web app to explore a DNA-based predator–prey osc
 - Build
   - `cd crate && wasm-pack build --target web --release --out-dir ../web/pkg`
 - Local serve
-  - `python3 -m http.server --directory web 8080`
-  - Open `http://localhost:8080/simulator/` (homepage), navigate to Bifurcation/Heatmap via the nav
+- `python3 -m http.server --directory web 8080`
+- Open `http://localhost:8080/simulator/` (homepage), navigate to Bifurcation/Heatmap via the nav
+- Regression harness: `wasm-pack build --target web --release --out-dir web/pkg` then `node tests/regression.js`
 
 ## Deployment
 - Netlify build uses `netlify-build.sh` which installs `wasm-pack` (if needed) and builds to `web/pkg/`

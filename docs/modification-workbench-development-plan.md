@@ -40,7 +40,7 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 | C2. Reinstate SI presets | Ensure Simulator defaults, Bifurcation “G sweep” work unchanged. |
 | C3. New Rec variants | Add optional Rec-based presets. |
 | C4. Docs refresh | `AGENTS.md`, roadmap, user help. |
-| C5. Regression tests | Scripted checks for oscillation-on-start, preset outputs, invariant math. |
+| C5. Regression tests | Scripted checks for oscillation-on-start, preset outputs, invariant math. _Status:_ Node harness (`tests/regression.js`) covers oscillation baseline, bifurcation timing, heatmap timing; invariant math TBD. |
 
 ## 2. Testing Matrix
 - **Unit:** importer, fitter, binding curve utilities, invariant math.
