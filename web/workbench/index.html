@@ -15,7 +15,9 @@
   .list { display:flex; flex-direction:column; gap:10px; }
   .mod-card { border:1px solid #cbd5e1; border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; background:#f8fafc; cursor:pointer; transition: background 0.15s ease; }
   .mod-card.active { border-color:#2563eb; background:#e0ecff; }
+  .mod-card.overlay-select { outline:2px dashed #93c5fd; }
   .mod-card .name { font-weight:600; color:#0f172a; }
+  .mod-card .name input[type="checkbox"] { margin-left:auto; }
   .mod-card .meta { font-size:0.85rem; color:#475569; display:flex; gap:10px; flex-wrap:wrap; }
   .mod-actions { display:flex; gap:8px; margin-top:12px; }
   button { border-radius:10px; border:1px solid #d4d4d8; background:#f9fafb; padding:8px 12px; cursor:pointer; font-size:0.95rem; }
@@ -91,6 +93,12 @@
             <option value="neutral">Neutral</option>
           </select>
         </label>
+        <div class="mod-actions" style="margin-top:4px;">
+          <button id="librarySetActive" type="button">Set selected as active</button>
+          <button id="libraryApplyOverlays" type="button">Use selected as overlays</button>
+          <button id="libraryOpenBifurcation" type="button">Open Bifurcation</button>
+          <button id="libraryOpenHeatmap" type="button">Open Heatmap</button>
+        </div>
         <div class="list" id="modList"></div>
         <div class="mod-actions">
           <button id="addModBtn" class="primary">New Modification</button>

@@ -33,6 +33,10 @@ const BASE_CONTEXT = {
 const elements = {
   list: document.getElementById('modList'),
   chargeFilter: document.getElementById('libraryChargeFilter'),
+  librarySetActive: document.getElementById('librarySetActive'),
+  libraryApplyOverlays: document.getElementById('libraryApplyOverlays'),
+  libraryOpenBifurcation: document.getElementById('libraryOpenBifurcation'),
+  libraryOpenHeatmap: document.getElementById('libraryOpenHeatmap'),
   addBtn: document.getElementById('addModBtn'),
   deleteBtn: document.getElementById('deleteModBtn'),
   setActiveBtn: document.getElementById('setActiveBtn'),
@@ -95,6 +99,14 @@ let mods = loadModifications();
 let selectedId = mods.length ? mods[0].id : null;
 let suppressUpdates = false;
 const libraryFilters = { charge: 'any' };
+const librarySelection = new Set();
+
+function pruneLibrarySelection(){
+  const available = new Set(mods.map((m) => m.id));
+  for (const id of Array.from(librarySelection)) {
+    if (!available.has(id)) librarySelection.delete(id);
+  }
+}
 
 if (!selectedId) {
   selectedId = null;
@@ -108,6 +120,7 @@ function ensureSelectedExists() {
 }
 
 function renderList() {
+  pruneLibrarySelection();
   elements.list.innerHTML = '';
   const activeId = getActiveModificationId();
   const overlayIds = new Set(pruneOverlayIds(getOverlayModificationIds(), mods));
@@ -115,10 +128,25 @@ function renderList() {
     const descriptors = computeDescriptors(mod);
     if (!passesFilters(descriptors, libraryFilters)) return;
     const card = document.createElement('div');
-    card.className = 'mod-card' + (mod.id === selectedId ? ' active' : '');
+    const isSelected = mod.id === selectedId;
+    const isOverlaySelected = librarySelection.has(mod.id);
+    card.className = 'mod-card' + (isSelected ? ' active' : '') + (isOverlaySelected ? ' overlay-select' : '');
     const title = document.createElement('div');
     title.className = 'name';
-    title.textContent = mod.label || 'Untitled modification';
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = mod.label || 'Untitled modification';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'library-select-checkbox';
+    checkbox.checked = librarySelection.has(mod.id);
+    checkbox.addEventListener('click', (evt) => {
+      evt.stopPropagation();
+      if (checkbox.checked) librarySelection.add(mod.id);
+      else librarySelection.delete(mod.id);
+      renderList();
+    });
+    title.appendChild(labelSpan);
+    title.appendChild(checkbox);
     const meta = document.createElement('div');
     meta.className = 'meta';
     const assoc = resolveRAssoc(mod).toFixed(2);
@@ -153,6 +181,7 @@ function renderList() {
   });
   elements.deleteBtn.disabled = !selectedId;
   elements.setActiveBtn.disabled = !selectedId;
+  updateLibraryActionState();
 }
 
 function currentMod() {
@@ -281,6 +310,14 @@ function populateChargeFilterOptions() {
     select.appendChild(option);
   });
   select.value = libraryFilters.charge || 'any';
+}
+
+function updateLibraryActionState() {
+  const hasSelection = librarySelection.size > 0;
+  if (elements.librarySetActive) elements.librarySetActive.disabled = librarySelection.size !== 1;
+  if (elements.libraryApplyOverlays) elements.libraryApplyOverlays.disabled = !hasSelection;
+  if (elements.libraryOpenBifurcation) elements.libraryOpenBifurcation.disabled = !hasSelection;
+  if (elements.libraryOpenHeatmap) elements.libraryOpenHeatmap.disabled = !hasSelection;
 }
 
 function appendFitHistory(entry, mod) {
@@ -822,6 +859,7 @@ function handleAdd() {
   populateForm();
   updateBindingTable();
   updateStatusBanner();
+  updateLibraryActionState();
 }
 
 function handleDelete() {
@@ -830,6 +868,7 @@ function handleDelete() {
   if (!confirm(`Delete modification "${mod.label || mod.id}"?`)) return;
   deleteModification(mod.id);
   mods = loadModifications();
+  librarySelection.delete(mod.id);
   selectedId = mods.length ? mods[0].id : null;
   renderList();
   populateForm();
@@ -871,6 +910,29 @@ function toggleHairpin(evt) {
   updateMod({ useHairpin: evt.target.checked });
 }
 
+function setActiveFromSelection(){
+  if (librarySelection.size !== 1) return;
+  const id = Array.from(librarySelection)[0];
+  if (!mods.some((m) => m.id === id)) return;
+  selectedId = id;
+  setActiveModificationId(id);
+  populateForm();
+  updateStatusBanner();
+  renderList();
+}
+
+function applyOverlaysFromSelection(){
+  if (!librarySelection.size) return;
+  setOverlayModificationIds(Array.from(librarySelection));
+  renderList();
+  updateBindingTable();
+}
+
+function openPageWithOverlays(path){
+  applyOverlaysFromSelection();
+  window.open(path, '_blank');
+}
+
 function init() {
   ensureSelectedExists();
   populateChargeFilterOptions();
@@ -880,6 +942,11 @@ function init() {
       renderList();
     });
   }
+  if (elements.librarySetActive) elements.librarySetActive.addEventListener('click', setActiveFromSelection);
+  if (elements.libraryApplyOverlays) elements.libraryApplyOverlays.addEventListener('click', applyOverlaysFromSelection);
+  if (elements.libraryOpenBifurcation) elements.libraryOpenBifurcation.addEventListener('click', () => openPageWithOverlays('../bifurcation/'));
+  if (elements.libraryOpenHeatmap) elements.libraryOpenHeatmap.addEventListener('click', () => openPageWithOverlays('../heatmap/'));
+
   renderList();
   populateForm();
   updateStatusBanner();

@@ -29,7 +29,7 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 | Task | Details |
 | --- | --- |
 | B1. Tagging model | Extend `Modification` schema with descriptors (charge, aromaticity, linker length). Migrate stored cards. _Status:_ heuristics + filter scaffolding implemented (`workbench/library.js`). |
-| B2. Library UI | Table/list with filters, multi-select for overlays, quick actions (compare in Bifurcation/Heatmap). _Status:_ charge filter scaffold landed; multi-select + actions pending. |
+| **B2. Library UI** | Table/list with filters, multi-select for overlays, quick actions (compare in Bifurcation/Heatmap). _Status:_ charge filter + multi-select overlay actions implemented; reporting/export still pending. |
 | B3. Exporter | Produce CSV + lightweight PDF (via jsPDF) summarizing modifications and diagnostics. |
 | B4. Overlay presets | Allow saving named overlay sets for quick activation. |
 
