@@ -1,5 +1,13 @@
 import { initWasm, runSimulationPhysical } from "../core.js";
-import { buildSimulationVariants, GAS_CONSTANT_KCAL } from "../modifications.js";
+import {
+  buildSimulationVariants,
+  GAS_CONSTANT_KCAL,
+  setActiveModificationId,
+  setOverlayModificationIds,
+  pruneOverlayIds,
+  ensureActiveExists,
+  getOverlayModificationIds,
+} from "../modifications.js";
 
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d', { alpha:false });
@@ -310,32 +318,73 @@ function initDefaults(){
   setVal('metric', 'period');
 }
 
-applyPresetBtn.addEventListener('click', () => {
-  const v = presetSel.value;
-  if (v === 'mod_assoc') {
-    // アミノ酸修飾の影響（周期）
+function applyPresetValue(value){
+  if (value === 'mod_assoc') {
+    // アミノ酸修飾（周期）
     initDefaults();
     presetDesc.innerHTML = 'ΔΔG_assoc を横軸、鋳型濃度 G を縦軸に取り、修飾の会合効果が周期に与える影響を可視化します。アクティブな修飾は自動で反映されます。';
-  } else if (v === 'balance') {
-    // 酵素バランスと安定性（振幅）
-    // Base
+    return;
+  }
+  if (value === 'balance') {
     setVal('pol', 3.7); setVal('k1', 0.0020);
     setVal('rec', 32.5); setVal('G', 150);
     setVal('k2', 0.0031); setVal('kN', 0.0210); setVal('kP', 0.0047); setVal('b', 0.000048);
     setVal('KmP', 34); setVal('N0', 10); setVal('P0', 10);
-    // Window
     setVal('t_end', 3000); setVal('dt', 0.5); setVal('tail', 50);
-    // Grid: G vs rec, amplitude
     setVal('xParam', 'G'); setVal('xMin', 50); setVal('xMax', 300); setVal('xSteps', 20);
     setVal('yParam', 'rec'); setVal('yMin', 10); setVal('yMax', 50); setVal('ySteps', 15);
     setVal('metric', 'amplitude');
     presetDesc.innerHTML = '鋳型濃度 G と分解酵素 rec のバランスが振幅（=振動の有無）に与える影響を可視化します。';
-  } else {
-    presetDesc.textContent = '';
+    return;
   }
+  presetDesc.textContent = '';
+}
+
+function applyQueryParams(){
+  const params = new URLSearchParams(window.location.search);
+  if (!params || Array.from(params.keys()).length === 0) return;
+
+  const presetKey = params.get('preset');
+  if (presetKey === 'assoc_period') {
+    presetSel.value = 'mod_assoc';
+    applyPresetValue('mod_assoc');
+  } else if (presetKey === 'rec_amp') {
+    presetSel.value = 'balance';
+    applyPresetValue('balance');
+  }
+
+  const numericKeys = ['xParam','xMin','xMax','xSteps','yParam','yMin','yMax','ySteps','metric','t_end','dt','tail'];
+  numericKeys.forEach((key) => {
+    if (params.has(key)) {
+      const val = params.get(key);
+      if (val !== null) setVal(key, val);
+    }
+  });
+
+  const activeId = params.get('active');
+  if (activeId) setActiveModificationId(activeId);
+
+  if (params.has('overlays')) {
+    const overlaysRaw = params.get('overlays') || '';
+    const overlays = overlaysRaw.split(',').map((id) => id.trim()).filter(Boolean);
+    const sanitized = pruneOverlayIds(overlays);
+    setOverlayModificationIds(sanitized);
+  } else {
+    const overlays = pruneOverlayIds(getOverlayModificationIds());
+    setOverlayModificationIds(overlays);
+  }
+
+  ensureActiveExists();
+}
+
+applyPresetBtn.addEventListener('click', () => {
+  const v = presetSel.value;
+  applyPresetValue(v);
 });
 
 initDefaults();
+applyPresetValue(presetSel.value);
+applyQueryParams();
 if (variantSelect) variantSelect.addEventListener('change', renderHeatmapSelection);
 
 function drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, metric, variantInfo){

@@ -1,5 +1,12 @@
 import { initWasm, runSimulationPhysical } from "../core.js";
-import { buildSimulationVariants } from "../modifications.js";
+import {
+  buildSimulationVariants,
+  setActiveModificationId,
+  setOverlayModificationIds,
+  pruneOverlayIds,
+  ensureActiveExists,
+  getOverlayModificationIds,
+} from "../modifications.js";
 
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d', { alpha:false });
@@ -160,18 +167,58 @@ function initDefaults(){
   setVal('steps', 100);
 }
 
-applyPresetBtn.addEventListener('click', () => {
-  const v = presetSel.value;
-  if (v === 'birth') {
-    // 振動の誕生（G掃引）— 図S11cの再現
+function applyPresetValue(value){
+  if (value === 'birth') {
     initDefaults();
     presetDesc.innerHTML = '鋳型DNA濃度 G を掃引し、どこから振動が始まるか（ホップ分岐）を可視化します。SI 図S11cの再現です。';
-  } else {
-    presetDesc.textContent = '';
+    return;
   }
+  presetDesc.textContent = '';
+}
+
+function applyQueryParams(){
+  const params = new URLSearchParams(window.location.search);
+  if (!params || Array.from(params.keys()).length === 0) return;
+
+  const presetKey = params.get('preset');
+  if (presetKey === 'G_sweep') {
+    presetSel.value = 'birth';
+    applyPresetValue('birth');
+  }
+
+  const numericKeys = ['param','pmin','pmax','steps','t_end','dt','tail'];
+  numericKeys.forEach((key) => {
+    if (params.has(key)) {
+      const val = params.get(key);
+      if (val !== null) setVal(key, val);
+    }
+  });
+
+  const activeId = params.get('active');
+  if (activeId) setActiveModificationId(activeId);
+
+  if (params.has('overlays')) {
+    const overlaysRaw = params.get('overlays') || '';
+    const overlays = overlaysRaw.split(',').map((id) => id.trim()).filter(Boolean);
+    const sanitized = pruneOverlayIds(overlays);
+    setOverlayModificationIds(sanitized);
+  } else {
+    // keep existing overlays
+    const overlays = pruneOverlayIds(getOverlayModificationIds());
+    setOverlayModificationIds(overlays);
+  }
+
+  ensureActiveExists();
+}
+
+applyPresetBtn.addEventListener('click', () => {
+  const v = presetSel.value;
+  applyPresetValue(v);
 });
 
 initDefaults();
+applyPresetValue(presetSel.value);
+applyQueryParams();
 
 function niceNum(range, round){
   const exponent = Math.floor(Math.log10(range));

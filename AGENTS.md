@@ -44,16 +44,21 @@ A Rust + WebAssembly + Canvas web app to explore a DNA-based predator–prey osc
   - Bifurcation (`/bifurcation/`)
     - Sweep one parameter across a range; after transients (tail window), compute `P` min/max and plot them
     - Supports baseline, active, and overlay modification series with per-series color coding
-    - Preset: “Birth of oscillations (G sweep)” — reproduces SI Fig. S11-like behavior
+    - Preset: “Birth of oscillations (G sweep)” — reproduces SI Fig. S11-like behavior; accepts URL params (`preset`, `active`, `overlays`, core ranges) for deep links from the Workbench
   - Heatmap (`/heatmap/`)
     - Sweep two parameters over a grid; evaluate either amplitude (P max−min) or period (mean peak spacing)
     - Turbo colormap rendering with legend and a selector to toggle baseline/active/overlay grids and Δ vs baseline views
-    - Presets:
+    - Presets (selectable or via `?preset=assoc_period|rec_amp`):
       - “Amino-acid modification (period)”: X=`G`, Y=`ΔΔG_assoc` (converted to `r_assoc`), metric=`period`
       - “Enzyme balance & stability (amplitude)”: X=`G`, Y=`rec`, metric=`amplitude`
   - Modification Workbench (`/workbench/`)
     - Manage modification cards (r_assoc / r_poly / r_nick, ΔΔG inputs, linker metadata)
-    - Computes effective parameters, sets active/overlay selections, and exports state via localStorage for other pages
+    - Computes effective parameters, highlights dominant factors, and surfaces k₁′/b′/g′/β′ at all times (with g′·f_open when hairpin folding is enabled)
+    - ΔΔG_assoc ↔ r_assoc inputs mirror each other with a 🔒 indicator on the driving field; conversions respect the configured temperature
+    - Ratio inputs enforce 0.05–20 hard bounds (0.2–5 recommended) with inline warnings; a “Reset to SI defaults” button restores PP1 baselines
+    - Hairpin correction displays the live opening probability `f_open` so downstream g-derived quantities stay transparent
+    - Library actions can open `/bifurcation` or `/heatmap` preloaded via `?preset=…&active=…&overlays=…` for one-click comparisons
+    - Fit pane auto-detects baseline windows, supports OLS/Huber loss, and reports r_assoc / r_nick consistency with traffic-light badges and recovery hints on failure
 
 - Defaults and Presets (from SI Table S5, PP1 optimized / Fig.2 & S11)
   - Common base values used in pages and presets:
@@ -96,6 +101,7 @@ A Rust + WebAssembly + Canvas web app to explore a DNA-based predator–prey osc
 - Canvas rendering is used for performance; avoid heavy DOM operations during sweeps
 - When plotting time series in Simulator: Prey = `400 − N`, Predator = `P`; phase portrait uses raw `N` vs `P`
 - For sweeps, ignore transients using a tail window (%) before computing metrics
+- Workbench fit workflow validates positive inputs, provides OLS/Huber modes, auto-selects the first-ten-point baseline if unset, and shows r_assoc / r_nick consistency badges (🟢/🟠/🔴) with recovery hints on failures
 
 ## Ideas for Future Work
 - Add “Export PNG” buttons for Bifurcation and Heatmap pages

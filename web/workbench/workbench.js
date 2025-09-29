@@ -30,6 +30,12 @@ const BASE_CONTEXT = {
   N0: 10,
 };
 
+const RATIO_WARN_MIN = 0.2;
+const RATIO_WARN_MAX = 5;
+const RATIO_ERR_MIN = 0.05;
+const RATIO_ERR_MAX = 20;
+const TWO_DECIMALS = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+
 const elements = {
   list: document.getElementById('modList'),
   chargeFilter: document.getElementById('libraryChargeFilter'),
@@ -43,6 +49,9 @@ const elements = {
   clearActiveBtn: document.getElementById('clearActiveBtn'),
   overlayToggle: document.getElementById('overlayToggle'),
   hairpinToggle: document.getElementById('hairpinToggle'),
+  resetDefaultsBtn: document.getElementById('resetDefaultsBtn'),
+  hairpinInfo: document.getElementById('hairpinInfo'),
+  hairpinValue: document.getElementById('hairpinValue'),
   form: document.getElementById('modForm'),
   warningText: document.getElementById('warningText'),
   derivedGrid: document.getElementById('derivedGrid'),
@@ -53,7 +62,11 @@ const elements = {
     amino: document.getElementById('amino'),
     temperature: document.getElementById('temperature'),
     deltaAssoc: document.getElementById('deltaAssoc'),
+    deltaAssocLabel: document.getElementById('deltaAssocLabel'),
     rAssoc: document.getElementById('rAssoc'),
+    rAssocLabel: document.getElementById('rAssocLabel'),
+    deltaAssocLock: document.getElementById('deltaAssocLock'),
+    rAssocLock: document.getElementById('rAssocLock'),
     rPoly: document.getElementById('rPoly'),
     rNick: document.getElementById('rNick'),
     deltaFold: document.getElementById('deltaFold'),
@@ -110,6 +123,57 @@ function pruneLibrarySelection(){
 
 if (!selectedId) {
   selectedId = null;
+}
+
+function ratioSeverity(value) {
+  if (!Number.isFinite(value) || value <= 0) return 'error';
+  if (value < RATIO_ERR_MIN || value > RATIO_ERR_MAX) return 'error';
+  if (value < RATIO_WARN_MIN || value > RATIO_WARN_MAX) return 'warning';
+  return 'ok';
+}
+
+function setFieldSeverity(fieldEl, severity) {
+  if (!fieldEl) return;
+  fieldEl.classList.remove('field-warning', 'field-error');
+  if (severity === 'warning') fieldEl.classList.add('field-warning');
+  if (severity === 'error') fieldEl.classList.add('field-error');
+}
+
+function formatScientific(value, digits = 3) {
+  if (!Number.isFinite(value)) return '—';
+  return value.toExponential(digits);
+}
+
+function severityEmoji(severity) {
+  if (severity === 'warning') return '🟠';
+  if (severity === 'error') return '🔴';
+  return '🟢';
+}
+
+function severityClass(severity) {
+  if (severity === 'warning') return 'warn';
+  if (severity === 'error') return 'err';
+  return 'ok';
+}
+
+function updateAssocLocks(primary) {
+  const { deltaAssocLock, rAssocLock } = elements.fields;
+  if (deltaAssocLock) deltaAssocLock.classList.toggle('visible', primary === 'delta');
+  if (rAssocLock) rAssocLock.classList.toggle('visible', primary === 'ratio');
+}
+
+function refreshHairpinInfo(derived, mod) {
+  const info = elements.hairpinInfo;
+  const valueEl = elements.hairpinValue;
+  if (!info || !valueEl) return;
+  if (!mod?.useHairpin) {
+    info.hidden = true;
+    valueEl.textContent = '—';
+    return;
+  }
+  const factor = derived?.hairpinFactor ?? 1;
+  valueEl.textContent = TWO_DECIMALS.format(factor);
+  info.hidden = false;
 }
 
 function ensureSelectedExists() {
@@ -211,6 +275,11 @@ function populateForm() {
     });
     elements.overlayToggle.checked = false;
     elements.hairpinToggle.checked = false;
+    updateAssocLocks(null);
+    setFieldSeverity(fields.rAssocLabel, null);
+    setFieldSeverity(fields.rPoly?.closest('label'), null);
+    setFieldSeverity(fields.rNick?.closest('label'), null);
+    refreshHairpinInfo(null, null);
     suppressUpdates = false;
     return;
   }
@@ -229,6 +298,11 @@ function populateForm() {
   fields.notes.value = mod.notes ?? '';
   elements.overlayToggle.checked = pruneOverlayIds(getOverlayModificationIds(), mods).includes(mod.id);
   elements.hairpinToggle.checked = Boolean(mod.useHairpin);
+  const primary = mod.assocSource || (typeof mod.deltaDeltaGAssoc === 'number' ? 'delta' : 'ratio');
+  updateAssocLocks(primary);
+  setFieldSeverity(fields.rAssocLabel, ratioSeverity(rAssoc));
+  setFieldSeverity(fields.rPoly?.closest('label'), ratioSeverity(mod.rPoly));
+  setFieldSeverity(fields.rNick?.closest('label'), ratioSeverity(mod.rNick));
   suppressUpdates = false;
   populateDerived();
 }
@@ -242,14 +316,21 @@ function populateDerived() {
   if (!mod) return;
 
   const derived = computeEffectiveParameters(BASE_CONTEXT, mod);
+  const primary = mod.assocSource || (typeof mod.deltaDeltaGAssoc === 'number' ? 'delta' : 'ratio');
+  updateAssocLocks(primary);
+
+  refreshHairpinInfo(derived, mod);
 
   const items = [
-    { label: 'k₁ eff', value: `${derived.k1Eff.toExponential(3)} [nM⁻¹ s⁻¹]` },
-    { label: 'b eff', value: `${derived.bEff.toExponential(3)} [nM⁻¹]` },
-    { label: 'g eff', value: derived.gEff.toFixed(3) },
-    { label: 'β eff', value: derived.betaEff.toFixed(3) },
+    { label: "k₁′", value: `${formatScientific(derived.k1Eff)} [nM⁻¹ min⁻¹]` },
+    { label: "b′", value: `${formatScientific(derived.bEff)} [nM⁻¹]` },
+    { label: "g′", value: derived.gEff.toFixed(3) },
+    mod.useHairpin
+      ? { label: "g′·f_open", value: derived.gEffFold.toFixed(3) }
+      : null,
+    { label: "β′", value: derived.betaEff.toFixed(3) },
     { label: 'Dominance', value: formatDominanceText(derived.dominance) },
-  ];
+  ].filter(Boolean);
 
   items.forEach((item) => {
     const block = document.createElement('div');
@@ -263,15 +344,38 @@ function populateDerived() {
     container.appendChild(block);
   });
 
+  const rAssoc = resolveRAssoc(mod);
+  const ratios = [
+    { label: 'r_assoc', value: rAssoc, severity: ratioSeverity(rAssoc), field: elements.fields.rAssocLabel },
+    { label: 'r_poly', value: mod.rPoly, severity: ratioSeverity(mod.rPoly), field: elements.fields.rPoly?.closest('label') },
+    { label: 'r_nick', value: mod.rNick, severity: ratioSeverity(mod.rNick), field: elements.fields.rNick?.closest('label') },
+  ];
+
   const warnings = [];
+  ratios.forEach(({ field, severity, label, value }) => {
+    setFieldSeverity(field, severity);
+    if (severity === 'warning') {
+      warnings.push(`${label}=${Number.isFinite(value) ? value.toFixed(3) : '—'} is outside the recommended 0.2–5 range.`);
+    }
+    if (severity === 'error') {
+      warnings.push(`${label}=${Number.isFinite(value) ? value.toFixed(3) : '—'} is outside the supported range (0.05–20). Adjust before simulating.`);
+    }
+  });
+
   if (typeof mod.deltaDeltaGAssoc === 'number' && (mod.deltaDeltaGAssoc < -5 || mod.deltaDeltaGAssoc > 5)) {
     warnings.push('ΔΔG_assoc is outside the recommended range (-5 to +5 kcal/mol).');
   }
-  if (typeof mod.rPoly === 'number' && (mod.rPoly < 0.2 || mod.rPoly > 5)) {
-    warnings.push('r_poly is outside the suggested range (0.2 – 5).');
-  }
-  if (typeof mod.rNick === 'number' && (mod.rNick < 0.2 || mod.rNick > 5)) {
-    warnings.push('r_nick is outside the suggested range (0.2 – 5).');
+  const deltaFromRatio = resolveDeltaFromRAssoc(mod);
+  if (typeof mod.deltaDeltaGAssoc === 'number' && Number.isFinite(deltaFromRatio)) {
+    const drift = Math.abs(mod.deltaDeltaGAssoc - deltaFromRatio);
+    if (drift > 0.2) {
+      warnings.push(`ΔΔG_assoc and r_assoc disagree by ${drift.toFixed(2)} kcal/mol. Check temperature inputs.`);
+      setFieldSeverity(elements.fields.deltaAssocLabel, 'warning');
+    } else {
+      setFieldSeverity(elements.fields.deltaAssocLabel, null);
+    }
+  } else {
+    setFieldSeverity(elements.fields.deltaAssocLabel, null);
   }
   if (warnings.length) {
     warningField.innerHTML = `<strong>Warnings:</strong> ${warnings.join(' ')}`;
@@ -353,25 +457,40 @@ function getFitFormValues(){
   if (!fit) return null;
   const polVal = Number.parseFloat(fit.pol?.value);
   const gVal = Number.parseFloat(fit.G?.value);
-  const baselinePoints = Math.max(1, Number.parseInt(fit.baseline?.value, 10) || 10);
+  const baselineRaw = fit.baseline?.value ?? '';
+  const baselineParsed = Number.parseInt(baselineRaw, 10);
+  const baselineAuto = baselineRaw === '' || !Number.isFinite(baselineParsed);
+  const baselinePoints = Math.max(1, baselineAuto ? 10 : baselineParsed);
   const greenScale = Number.parseFloat(fit.greenScale?.value);
   const N0Val = Number.parseFloat(fit.N0?.value);
+  const timeUnit = fit.timeUnit?.value || 's';
+  const loss = fit.loss?.value === 'huber' ? 'huber' : 'ols';
+
+  const errors = [];
+  if (!Number.isFinite(polVal) || polVal <= 0) errors.push('pol must be a positive value (nM).');
+  if (!Number.isFinite(gVal) || gVal <= 0) errors.push('G must be a positive concentration.');
+  if (!Number.isFinite(N0Val) || N0Val <= 0) errors.push('Initial N₀ must be positive.');
+  if (!Number.isFinite(greenScale) || greenScale <= 0) errors.push('Green → nM scale must be a positive multiplier.');
+  if (!['s', 'sec', 'seconds', 'min'].includes(timeUnit)) errors.push(`Unsupported time unit "${timeUnit}". Use seconds or minutes.`);
+
   return {
     importer: {
-      timeUnit: fit.timeUnit?.value || 's',
+      timeUnit,
       baselinePoints,
-      greenScale: Number.isFinite(greenScale) ? greenScale : 1,
+      baselineAuto,
+      greenScale,
       crossTalk: {
         fromYellowToGreen: Number.parseFloat(fit.crosstalkYG?.value) || 0,
         fromGreenToYellow: Number.parseFloat(fit.crosstalkGY?.value) || 0,
       },
     },
     solver: {
-      pol: Number.isFinite(polVal) && polVal > 0 ? polVal : BASE_CONTEXT.pol,
-      G: Number.isFinite(gVal) && gVal > 0 ? gVal : BASE_CONTEXT.G,
-      N0: Number.isFinite(N0Val) && N0Val > 0 ? N0Val : BASE_CONTEXT.N0,
-      loss: fit.loss?.value === 'huber' ? 'huber' : 'ols',
+      pol: polVal,
+      G: gVal,
+      N0: N0Val,
+      loss,
     },
+    errors,
   };
 }
 
@@ -391,55 +510,119 @@ function setFitWarnings(messages){
   }
 }
 
-function renderFitResults(dataset, fit, factors, solver, fileName){
+function renderFitResults(dataset, fit, factors, formOpts, fileName, prevRatios, updatedMod){
   const container = elements.fit?.results;
   if (!container) return;
   container.innerHTML = '';
   if (!fit) return;
+
+  const solver = formOpts?.solver || {};
+  const importer = formOpts?.importer || {};
+  const timeArray = dataset?.time ? Array.from(dataset.time) : [];
+  const points = timeArray.length;
+  const duration = points > 1 ? timeArray[points - 1] - timeArray[0] : 0;
+  const dt = points > 1 ? duration / (points - 1) : 0;
+
+  const modAfterFit = updatedMod || currentMod();
+  const currentAssoc = modAfterFit ? resolveRAssoc(modAfterFit) : null;
+  const currentNick = modAfterFit?.rNick ?? null;
+
+  const assocRangeSeverity = Number.isFinite(currentAssoc) ? ratioSeverity(currentAssoc) : 'ok';
+  const nickRangeSeverity = Number.isFinite(currentNick) ? ratioSeverity(currentNick) : 'ok';
+
+  const assocDiff = prevRatios && Number.isFinite(prevRatios.rAssoc) && Number.isFinite(currentAssoc)
+    ? Math.abs(currentAssoc - prevRatios.rAssoc)
+    : null;
+  const nickDiff = prevRatios && Number.isFinite(prevRatios.rNick) && Number.isFinite(currentNick)
+    ? Math.abs(currentNick - prevRatios.rNick)
+    : null;
+
+  const diffSeverity = (diff) => {
+    if (diff === null) return 'ok';
+    if (diff < 0.05) return 'ok';
+    if (diff < 0.2) return 'warning';
+    return 'error';
+  };
+
+  const assocConsistency = assocRangeSeverity === 'error' ? 'error'
+    : assocRangeSeverity === 'warning' || diffSeverity(assocDiff) === 'warning' ? 'warning'
+    : diffSeverity(assocDiff);
+  const nickConsistency = nickRangeSeverity === 'error' ? 'error'
+    : nickRangeSeverity === 'warning' || diffSeverity(nickDiff) === 'warning' ? 'warning'
+    : diffSeverity(nickDiff);
+
+  const makeStatusCard = (title, label, severity, diff, units) => ({
+    title,
+    render(containerEl) {
+      const pill = document.createElement('span');
+      pill.className = `status-pill ${severityClass(severity)}`;
+      pill.textContent = `${severityEmoji(severity)} ${label}`;
+      if (diff !== null && Number.isFinite(diff)) {
+        const diffSpan = document.createElement('span');
+        diffSpan.textContent = ` · Δ ${TWO_DECIMALS.format(diff)}${units || ''}`;
+        pill.appendChild(diffSpan);
+      }
+      containerEl.appendChild(pill);
+    },
+  });
+
   const cards = [
     {
-      title: "k₁' [nM⁻¹ min⁻¹]",
+      title: "k₁′ [nM⁻¹ min⁻¹]",
       body: `${fit.k1.toExponential(3)} (95% CI ${fit.k1CI[0].toExponential(3)} – ${fit.k1CI[1].toExponential(3)})`,
     },
     {
-      title: "b' [nM⁻¹]",
+      title: "b′ [nM⁻¹]",
       body: `${fit.b.toExponential(3)} (95% CI ${fit.bCI[0].toExponential(3)} – ${fit.bCI[1].toExponential(3)})`,
     },
     {
-      title: 'r_poly',
+      title: '(k₁′/b′)/(k₁/b) → r_poly',
       body: factors && Number.isFinite(factors.rPoly) ? factors.rPoly.toFixed(3) : '—',
     },
     {
-      title: 'r_nick',
+      title: 'r_nick (fit-derived)',
       body: factors && Number.isFinite(factors.rNick) ? factors.rNick.toFixed(3) : '—',
     },
+    makeStatusCard('r_assoc consistency', 'r_assoc', assocConsistency, assocDiff, ''),
+    makeStatusCard('r_nick consistency', 'r_nick', nickConsistency, nickDiff, ''),
     {
       title: 'R²',
       body: `${(fit.diagnostics.r2 * 100).toFixed(2)}%`,
     },
     {
       title: 'Loss / points',
-      body: `${solver.loss.toUpperCase()} • ${dataset.time.length} pts${fit.diagnostics.skipped.length ? ` (skipped ${fit.diagnostics.skipped.length})` : ''}`,
+      body: `${(solver.loss || 'ols').toUpperCase()} • ${points} pts${fit.diagnostics.skipped.length ? ` (skipped ${fit.diagnostics.skipped.length})` : ''}`,
     },
   ];
+
   cards.forEach((card) => {
     const div = document.createElement('div');
     div.className = 'fit-result-card';
     const h = document.createElement('h4');
     h.textContent = card.title;
     const p = document.createElement('p');
-    p.textContent = card.body;
+    if (typeof card.render === 'function') {
+      p.textContent = '';
+      p.style.display = 'flex';
+      p.style.alignItems = 'center';
+      card.render(p);
+    } else {
+      p.textContent = card.body;
+    }
     div.appendChild(h);
     div.appendChild(p);
     container.appendChild(div);
   });
-  const duration = dataset.time[dataset.time.length - 1] - dataset.time[0];
-  const dt = dataset.time.length > 1 ? duration / (dataset.time.length - 1) : 0;
+
+  const baselineLabel = importer.baselineAuto ? `${importer.baselinePoints} (auto)` : importer.baselinePoints;
+  const timeUnitLabel = importer.timeUnit === 'min' ? 'minutes' : 'seconds → minutes';
   const meta = [
     fileName ? `File: ${fileName}` : null,
-    `Points: ${dataset.time.length}`,
+    points ? `Points: ${points}` : null,
     `Range: ${duration.toFixed(2)} min`,
     `Δt ≈ ${dt.toFixed(3)} min`,
+    `Baseline window: ${baselineLabel}`,
+    `Time unit: ${timeUnitLabel}`,
   ].filter(Boolean).join(' • ');
   setFitMeta(meta);
 }
@@ -456,6 +639,10 @@ function gatherFitWarnings(datasetWarnings, fitDiagnostics){
 async function processFitFile(file){
   const opts = getFitFormValues();
   if (!opts) return;
+  if (opts.errors && opts.errors.length) {
+    setFitWarnings(opts.errors);
+    return;
+  }
   setFitMeta('Parsing CSV…');
   setFitWarnings(null);
   if (elements.fit?.results) elements.fit.results.innerHTML = '';
@@ -483,6 +670,13 @@ async function processFitFile(file){
     );
 
     const mod = currentMod();
+    const prevRatios = mod
+      ? {
+          rAssoc: resolveRAssoc(mod),
+          rPoly: mod.rPoly,
+          rNick: mod.rNick,
+        }
+      : null;
     let factors = null;
     let warnings = gatherFitWarnings(dataset.warnings, fit.diagnostics);
     if (mod) {
@@ -525,16 +719,20 @@ async function processFitFile(file){
         fitHistory,
       });
       updateFitActions();
+      const updatedAfterFit = currentMod();
+      renderFitResults(dataset, fit, factors, opts, file.name, prevRatios, updatedAfterFit);
     } else {
       warnings = ['Select a modification card before applying fit results.'].concat(warnings);
+      renderFitResults(dataset, fit, factors, opts, file.name, prevRatios, null);
     }
 
     setFitWarnings(warnings);
-    renderFitResults({ time: Array.from(dataset.time) }, fit, factors, opts.solver, file.name);
   } catch (err) {
     console.error('[fit] failed', err);
     setFitMeta('Fit failed.');
-    setFitWarnings([err.message || String(err)]);
+    const hint = 'Hint: try enabling Huber loss or reducing the initial b guess (e.g. halve the baseline) before re-running the fit.';
+    const message = err?.message || String(err);
+    setFitWarnings([message, hint]);
   }
 }
 
@@ -785,11 +983,11 @@ function updateBindingTable() {
   const variants = buildSimulationVariants(BASE_CONTEXT);
   const table = elements.bindingTable;
   const rows = [
-    '<tr><th>Name</th><th>Type</th><th>k₁ eff</th><th>b eff</th><th>β eff</th></tr>',
+    '<tr><th>Name</th><th>Type</th><th>k₁′</th><th>b′</th><th>g′</th><th>β′</th></tr>',
   ];
   variants.forEach((variant) => {
     const { label, derived, type } = variant;
-    rows.push(`<tr><td>${label}</td><td>${type}</td><td>${derived.k1Eff.toExponential(3)}</td><td>${derived.bEff.toExponential(3)}</td><td>${derived.betaEff.toFixed(3)}</td></tr>`);
+    rows.push(`<tr><td>${label}</td><td>${type}</td><td>${derived.k1Eff.toExponential(3)}</td><td>${derived.bEff.toExponential(3)}</td><td>${derived.gEff.toFixed(3)}</td><td>${derived.betaEff.toFixed(3)}</td></tr>`);
   });
   table.innerHTML = rows.join('');
 }
@@ -798,27 +996,74 @@ function onFieldChange(evt) {
   if (suppressUpdates) return;
   const mod = currentMod();
   if (!mod) return;
+  const fields = elements.fields;
   const { id } = evt.target;
   const value = evt.target.value;
   if (id === 'label') updateMod({ label: value });
   else if (id === 'amino') updateMod({ aminoAcid: value || undefined });
   else if (id === 'temperature') updateMod({ temperatureC: value === '' ? undefined : Number(value) });
-  else if (id === 'rPoly') updateMod({ rPoly: value === '' ? undefined : Number(value) });
-  else if (id === 'rNick') updateMod({ rNick: value === '' ? undefined : Number(value) });
+  else if (id === 'rPoly' || id === 'rNick') {
+    const num = value === '' ? undefined : Number(value);
+    const warningField = elements.warningText;
+    const labelEl = id === 'rPoly' ? fields.rPoly.closest('label') : fields.rNick.closest('label');
+    if (value !== '' && (!Number.isFinite(num) || num <= 0)) {
+      if (warningField) warningField.innerHTML = `<strong>Error:</strong> ${id} must be positive.`;
+      if (id === 'rPoly') fields.rPoly.value = Number.isFinite(mod.rPoly) ? mod.rPoly : '';
+      else fields.rNick.value = Number.isFinite(mod.rNick) ? mod.rNick : '';
+      setFieldSeverity(labelEl, 'error');
+      return;
+    }
+    const severity = num === undefined ? 'ok' : ratioSeverity(num);
+    if (severity === 'error') {
+      if (warningField) warningField.innerHTML = `<strong>Error:</strong> ${id} must stay within 0.05 – 20. Value not applied.`;
+      if (id === 'rPoly') fields.rPoly.value = Number.isFinite(mod.rPoly) ? mod.rPoly : '';
+      else fields.rNick.value = Number.isFinite(mod.rNick) ? mod.rNick : '';
+      setFieldSeverity(labelEl, 'error');
+      return;
+    }
+    const payload = id === 'rPoly' ? { rPoly: num } : { rNick: num };
+    updateMod(payload);
+  }
   else if (id === 'deltaFold') updateMod({ deltaDeltaGFold: value === '' ? undefined : Number(value) });
   else if (id === 'linkerLength' || id === 'linkerPolarity') {
-    const len = elements.fields.linkerLength.value;
-    const pol = elements.fields.linkerPolarity.value;
+    const len = fields.linkerLength.value;
+    const pol = fields.linkerPolarity.value;
     if (len === '' && !pol) updateMod({ linker: undefined });
     else updateMod({ linker: { length: len === '' ? undefined : Number(len), polarity: pol || undefined } });
   } else if (id === 'notes') updateMod({ notes: value || undefined });
   else if (id === 'deltaAssoc') {
     const num = value === '' ? undefined : Number(value);
-    updateMod({ deltaDeltaGAssoc: num, rAssoc: num === undefined ? mod.rAssoc : undefined });
+    if (value !== '' && !Number.isFinite(num)) {
+      fields.deltaAssoc.value = mod.deltaDeltaGAssoc ?? '';
+      return;
+    }
+    const payload = {
+      deltaDeltaGAssoc: num,
+      assocSource: num === undefined ? (mod.rAssoc ? 'ratio' : undefined) : 'delta',
+    };
+    if (num !== undefined) payload.rAssoc = undefined;
+    updateMod(payload);
     syncAssocFields();
   } else if (id === 'rAssoc') {
     const num = value === '' ? undefined : Number(value);
-    updateMod({ rAssoc: num, deltaDeltaGAssoc: num === undefined ? mod.deltaDeltaGAssoc : undefined });
+    const warningField = elements.warningText;
+    if (value !== '' && (!Number.isFinite(num) || num <= 0)) {
+      if (warningField) warningField.innerHTML = '<strong>Error:</strong> r_assoc must be positive.';
+      fields.rAssoc.value = resolveRAssoc(mod).toFixed(3);
+      return;
+    }
+    const severity = num === undefined ? 'ok' : ratioSeverity(num);
+    if (severity === 'error') {
+      if (warningField) warningField.innerHTML = '<strong>Error:</strong> r_assoc must stay within 0.05 – 20. Value not applied.';
+      fields.rAssoc.value = resolveRAssoc(mod).toFixed(3);
+      setFieldSeverity(elements.fields.rAssocLabel, 'error');
+      return;
+    }
+    updateMod({
+      rAssoc: num,
+      deltaDeltaGAssoc: num === undefined ? mod.deltaDeltaGAssoc : undefined,
+      assocSource: num === undefined ? (typeof mod.deltaDeltaGAssoc === 'number' ? 'delta' : undefined) : 'ratio',
+    });
     syncDeltaField();
   }
 }
@@ -851,6 +1096,7 @@ function handleAdd() {
     rPoly: 1,
     rNick: 1,
     rAssoc: 1,
+    assocSource: 'ratio',
   };
   upsertModification(newMod);
   mods = loadModifications();
@@ -910,6 +1156,23 @@ function toggleHairpin(evt) {
   updateMod({ useHairpin: evt.target.checked });
 }
 
+function resetToDefaults() {
+  const mod = currentMod();
+  if (!mod) return;
+  updateMod({
+    temperatureC: 37,
+    deltaDeltaGAssoc: undefined,
+    rAssoc: 1,
+    rPoly: 1,
+    rNick: 1,
+    deltaDeltaGFold: undefined,
+    useHairpin: false,
+    assocSource: 'ratio',
+  });
+  elements.hairpinToggle.checked = false;
+  populateForm();
+}
+
 function setActiveFromSelection(){
   if (librarySelection.size !== 1) return;
   const id = Array.from(librarySelection)[0];
@@ -928,9 +1191,41 @@ function applyOverlaysFromSelection(){
   updateBindingTable();
 }
 
-function openPageWithOverlays(path){
-  applyOverlaysFromSelection();
-  window.open(path, '_blank');
+function openPageWithOverlays(path, query = {}) {
+  const selection = Array.from(librarySelection);
+  let activeId = getActiveModificationId();
+  let overlays = getOverlayModificationIds();
+
+  if (selection.length) {
+    activeId = selection[0];
+    const overlayIds = selection.slice(1);
+    setActiveModificationId(activeId);
+    setOverlayModificationIds(overlayIds);
+    overlays = overlayIds;
+    selectedId = activeId;
+    populateForm();
+    renderList();
+    updateStatusBanner();
+    updateBindingTable();
+  }
+
+  overlays = pruneOverlayIds(overlays);
+
+  const url = new URL(path, window.location.href);
+  const params = url.searchParams;
+  if (query.preset) params.set('preset', query.preset);
+  if (query.param) params.set('param', query.param);
+  if (query.metric) params.set('metric', query.metric);
+  if (query.tail) params.set('tail', String(query.tail));
+  if (query.extra) {
+    Object.entries(query.extra).forEach(([key, val]) => {
+      if (val !== undefined && val !== null) params.set(key, String(val));
+    });
+  }
+  if (activeId) params.set('active', activeId);
+  const overlayParam = overlays.filter((id) => id && id !== activeId);
+  if (overlayParam.length) params.set('overlays', overlayParam.join(','));
+  window.open(url.toString(), '_blank');
 }
 
 function init() {
@@ -944,8 +1239,12 @@ function init() {
   }
   if (elements.librarySetActive) elements.librarySetActive.addEventListener('click', setActiveFromSelection);
   if (elements.libraryApplyOverlays) elements.libraryApplyOverlays.addEventListener('click', applyOverlaysFromSelection);
-  if (elements.libraryOpenBifurcation) elements.libraryOpenBifurcation.addEventListener('click', () => openPageWithOverlays('../bifurcation/'));
-  if (elements.libraryOpenHeatmap) elements.libraryOpenHeatmap.addEventListener('click', () => openPageWithOverlays('../heatmap/'));
+  if (elements.libraryOpenBifurcation) {
+    elements.libraryOpenBifurcation.addEventListener('click', () => openPageWithOverlays('../bifurcation/', { preset: 'G_sweep' }));
+  }
+  if (elements.libraryOpenHeatmap) {
+    elements.libraryOpenHeatmap.addEventListener('click', () => openPageWithOverlays('../heatmap/', { preset: 'assoc_period' }));
+  }
 
   renderList();
   populateForm();
@@ -958,6 +1257,7 @@ function init() {
   elements.clearActiveBtn.addEventListener('click', clearActive);
   elements.overlayToggle.addEventListener('change', toggleOverlay);
   elements.hairpinToggle.addEventListener('change', toggleHairpin);
+  if (elements.resetDefaultsBtn) elements.resetDefaultsBtn.addEventListener('click', resetToDefaults);
 
   Object.values(elements.fields).forEach((field) => {
     field?.addEventListener('input', onFieldChange);

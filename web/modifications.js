@@ -148,6 +148,7 @@ export function computeEffectiveParameters(baseParams, mod) {
     bEff,
     gEff,
     gEffFold,
+    hairpinFactor: gHairpinFactor,
     betaEff,
     dominance,
   };
