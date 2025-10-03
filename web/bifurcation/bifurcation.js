@@ -82,9 +82,7 @@ runBtn.addEventListener('click', async () => {
     const paramsBase = { ...bp, [pname]: x };
     const variants = buildSimulationVariants(paramsBase);
     for (const variant of variants){
-      const arr = runSimulationPhysical(variant.params);
-      const len = arr.length / 2 | 0;
-      const P = arr.slice(len);
+      const { P } = runSimulationPhysical(variant.params);
       const tail = Math.max(1, Math.floor(P.length * (tailPct/100)));
       let pminTail = +Infinity, pmaxTail = -Infinity;
       for (let j=P.length - tail; j<P.length; j++){
