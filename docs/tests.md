@@ -22,6 +22,8 @@ node tests/regression.js
 
 On success, JSON summaries are printed for each scenario. On failure (e.g., missing WASM bundle), the script reports the error so the harness can be wired into future CI workflows.
 
+> **Note (2025-09-26):** When executed under the current Node-only environment the dynamic `import()` path fails with `fetch failed`. A lightweight `fetch` shim (or running under a bundler/`node --experimental-fetch`) is required before wiring into CI.
+
 ## Next Steps
 
 - Extend the heatmap metric to compute period via peak detection (currently placeholder for perf check).
