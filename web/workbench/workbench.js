@@ -5,21 +5,14 @@ import {
   findModification,
   formatDominanceText,
   getActiveModificationId,
-  getAssocInputs,
-  getNbInputs,
   getOverlayModificationIds,
-  getSsbInputs,
   loadModifications,
-  loadWorkbenchPrefs,
   pruneOverlayIds,
   resolveDeltaFromRAssoc,
   resolveRAssoc,
-  saveWorkbenchPrefs,
   setActiveModificationId,
   setOverlayModificationIds,
   upsertModification,
-  upgradeLegacyModifications,
-  WORKFLOW_STEP_STATES,
 } from '../modifications.js';
 import { parsePreyCsvFile, parseTitrationCsvFile } from './fit/importer.js';
 import { fitPreyDataset, deriveModificationFactors } from './fit/prey_fit.js';
@@ -37,28 +30,6 @@ const BASE_CONTEXT = {
   N0: 10,
 };
 
-const SIMPLE_STEPS = [
-  { id: 'design', label: '① 設計', subtitle: 'Design' },
-  { id: 'predict', label: '② 予測', subtitle: 'Predict' },
-  { id: 'identify', label: '③ 同定', subtitle: 'Identify' },
-  { id: 'compare', label: '④ 比較', subtitle: 'Compare' },
-];
-const STEP_IDS = SIMPLE_STEPS.map((step) => step.id);
-const DEFAULT_STEP = 'design';
-
-function sanitizeMode(value) {
-  return value === 'detail' ? 'detail' : value === 'simple' ? 'simple' : null;
-}
-
-function sanitizeStep(value) {
-  return STEP_IDS.includes(value) ? value : null;
-}
-
-function persistPrefs(updates = {}) {
-  workbenchPrefs = { ...workbenchPrefs, ...updates };
-  saveWorkbenchPrefs(workbenchPrefs);
-}
-
 const RATIO_WARN_MIN = 0.2;
 const RATIO_WARN_MAX = 5;
 const RATIO_ERR_MIN = 0.05;
@@ -66,19 +37,6 @@ const RATIO_ERR_MAX = 20;
 const TWO_DECIMALS = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 
 const elements = {
-  modeToggle: document.getElementById('modeToggleBtn'),
-  modeBadge: document.getElementById('modeBadge'),
-  detailRoot: document.getElementById('detailModeRoot'),
-  simple: {
-    root: document.getElementById('simpleModeRoot'),
-    empty: document.getElementById('simpleEmptyState'),
-    content: document.getElementById('simpleContent'),
-    stepper: document.getElementById('simpleStepper'),
-    prev: document.getElementById('simplePrevStep'),
-    next: document.getElementById('simpleNextStep'),
-    tip: document.getElementById('simpleTip'),
-    create: document.getElementById('simpleCreateBtn'),
-  },
   list: document.getElementById('modList'),
   chargeFilter: document.getElementById('libraryChargeFilter'),
   librarySetActive: document.getElementById('librarySetActive'),
@@ -150,13 +108,6 @@ const elements = {
   },
 };
 
-const urlParams = new URLSearchParams(window.location.search);
-let workbenchPrefs = loadWorkbenchPrefs();
-let currentMode = sanitizeMode(urlParams.get('mode')) ?? sanitizeMode(workbenchPrefs.mode) ?? 'simple';
-let currentStep = sanitizeStep(urlParams.get('step')) ?? sanitizeStep(workbenchPrefs.lastVisitedStep) ?? DEFAULT_STEP;
-workbenchPrefs.mode = currentMode;
-workbenchPrefs.lastVisitedStep = currentStep;
-
 let mods = loadModifications();
 let selectedId = mods.length ? mods[0].id : null;
 let suppressUpdates = false;
@@ -205,12 +156,6 @@ function severityClass(severity) {
   return 'ok';
 }
 
-function stateIcon(state) {
-  if (state === WORKFLOW_STEP_STATES.done) return '🟢';
-  if (state === WORKFLOW_STEP_STATES.inProgress) return '🟡';
-  return '⚪️';
-}
-
 function updateAssocLocks(primary) {
   const { deltaAssocLock, rAssocLock } = elements.fields;
   if (deltaAssocLock) deltaAssocLock.classList.toggle('visible', primary === 'delta');
@@ -221,8 +166,7 @@ function refreshHairpinInfo(derived, mod) {
   const info = elements.hairpinInfo;
   const valueEl = elements.hairpinValue;
   if (!info || !valueEl) return;
-  const hairpin = getSsbInputs(mod).hairpin;
-  if (!hairpin?.enabled) {
+  if (!mod?.useHairpin) {
     info.hidden = true;
     valueEl.textContent = '—';
     return;
@@ -296,7 +240,6 @@ function renderList() {
       selectedId = mod.id;
       populateForm();
       renderList();
-      if (currentMode === 'simple') renderSimpleMode();
     });
     elements.list.appendChild(card);
   });
@@ -314,15 +257,12 @@ function updateMod(partial) {
   if (!selectedId) return;
   const idx = mods.findIndex((m) => m.id === selectedId);
   if (idx < 0) return;
-  const merged = { ...mods[idx], ...partial };
-  const upgraded = upgradeLegacyModifications([merged]).mods[0] || merged;
-  mods[idx] = upgraded;
-  upsertModification(upgraded);
+  mods[idx] = { ...mods[idx], ...partial };
+  upsertModification(mods[idx]);
   mods = loadModifications();
   populateDerived();
   renderList();
   updateStatusBanner();
-  if (currentMode === 'simple') renderSimpleMode();
 }
 
 function populateForm() {
@@ -346,33 +286,23 @@ function populateForm() {
   fields.label.value = mod.label || '';
   fields.amino.value = mod.aminoAcid || '';
   fields.temperature.value = mod.temperatureC ?? 37;
-
-  const assocInputs = getAssocInputs(mod);
-  const nbInputs = getNbInputs(mod);
-  const ssbInputs = getSsbInputs(mod);
-
-  fields.deltaAssoc.value = assocInputs.delta === null || assocInputs.delta === undefined ? '' : assocInputs.delta;
+  const ddg = mod.deltaDeltaGAssoc;
+  fields.deltaAssoc.value = ddg ?? '';
   const rAssoc = resolveRAssoc(mod);
-  fields.rAssoc.value = Number.isFinite(rAssoc) ? rAssoc : '';
-
-  const rPoly = Number.isFinite(ssbInputs.ratio) ? ssbInputs.ratio : (Number.isFinite(mod.rPoly) ? mod.rPoly : 1);
-  fields.rPoly.value = Number.isFinite(rPoly) ? rPoly : '';
-
-  const rNick = Number.isFinite(nbInputs.ratio) ? nbInputs.ratio : (Number.isFinite(mod.rNick) ? mod.rNick : 1);
-  fields.rNick.value = Number.isFinite(rNick) ? rNick : '';
-
-  const deltaFold = ssbInputs.hairpin?.deltaGFold;
-  fields.deltaFold.value = Number.isFinite(deltaFold) ? deltaFold : '';
+  fields.rAssoc.value = Number.isFinite(rAssoc) ? rAssoc : 1;
+  fields.rPoly.value = mod.rPoly ?? 1;
+  fields.rNick.value = mod.rNick ?? 1;
+  fields.deltaFold.value = mod.deltaDeltaGFold ?? '';
   fields.linkerLength.value = mod.linker?.length ?? '';
   fields.linkerPolarity.value = mod.linker?.polarity ?? '';
   fields.notes.value = mod.notes ?? '';
   elements.overlayToggle.checked = pruneOverlayIds(getOverlayModificationIds(), mods).includes(mod.id);
-  elements.hairpinToggle.checked = Boolean(ssbInputs.hairpin?.enabled);
-  const primary = assocInputs.mode || 'ratio';
+  elements.hairpinToggle.checked = Boolean(mod.useHairpin);
+  const primary = mod.assocSource || (typeof mod.deltaDeltaGAssoc === 'number' ? 'delta' : 'ratio');
   updateAssocLocks(primary);
   setFieldSeverity(fields.rAssocLabel, ratioSeverity(rAssoc));
-  setFieldSeverity(fields.rPoly?.closest('label'), ratioSeverity(rPoly));
-  setFieldSeverity(fields.rNick?.closest('label'), ratioSeverity(rNick));
+  setFieldSeverity(fields.rPoly?.closest('label'), ratioSeverity(mod.rPoly));
+  setFieldSeverity(fields.rNick?.closest('label'), ratioSeverity(mod.rNick));
   suppressUpdates = false;
   populateDerived();
 }
@@ -385,12 +315,8 @@ function populateDerived() {
   warningField.textContent = '';
   if (!mod) return;
 
-  const assocInputs = getAssocInputs(mod);
-  const nbInputs = getNbInputs(mod);
-  const ssbInputs = getSsbInputs(mod);
-
   const derived = computeEffectiveParameters(BASE_CONTEXT, mod);
-  const primary = assocInputs.mode || 'ratio';
+  const primary = mod.assocSource || (typeof mod.deltaDeltaGAssoc === 'number' ? 'delta' : 'ratio');
   updateAssocLocks(primary);
 
   refreshHairpinInfo(derived, mod);
@@ -399,7 +325,7 @@ function populateDerived() {
     { label: "k₁′", value: `${formatScientific(derived.k1Eff)} [nM⁻¹ min⁻¹]` },
     { label: "b′", value: `${formatScientific(derived.bEff)} [nM⁻¹]` },
     { label: "g′", value: derived.gEff.toFixed(3) },
-    ssbInputs.hairpin?.enabled
+    mod.useHairpin
       ? { label: "g′·f_open", value: derived.gEffFold.toFixed(3) }
       : null,
     { label: "β′", value: derived.betaEff.toFixed(3) },
@@ -419,12 +345,10 @@ function populateDerived() {
   });
 
   const rAssoc = resolveRAssoc(mod);
-  const rPoly = Number.isFinite(ssbInputs.ratio) ? ssbInputs.ratio : (Number.isFinite(mod.rPoly) ? mod.rPoly : 1);
-  const rNick = Number.isFinite(nbInputs.ratio) ? nbInputs.ratio : (Number.isFinite(mod.rNick) ? mod.rNick : 1);
   const ratios = [
     { label: 'r_assoc', value: rAssoc, severity: ratioSeverity(rAssoc), field: elements.fields.rAssocLabel },
-    { label: 'r_poly', value: rPoly, severity: ratioSeverity(rPoly), field: elements.fields.rPoly?.closest('label') },
-    { label: 'r_nick', value: rNick, severity: ratioSeverity(rNick), field: elements.fields.rNick?.closest('label') },
+    { label: 'r_poly', value: mod.rPoly, severity: ratioSeverity(mod.rPoly), field: elements.fields.rPoly?.closest('label') },
+    { label: 'r_nick', value: mod.rNick, severity: ratioSeverity(mod.rNick), field: elements.fields.rNick?.closest('label') },
   ];
 
   const warnings = [];
@@ -438,12 +362,12 @@ function populateDerived() {
     }
   });
 
-  if (primary === 'delta' && typeof assocInputs.delta === 'number' && (assocInputs.delta < -5 || assocInputs.delta > 5)) {
+  if (typeof mod.deltaDeltaGAssoc === 'number' && (mod.deltaDeltaGAssoc < -5 || mod.deltaDeltaGAssoc > 5)) {
     warnings.push('ΔΔG_assoc is outside the recommended range (-5 to +5 kcal/mol).');
   }
   const deltaFromRatio = resolveDeltaFromRAssoc(mod);
-  if (primary === 'delta' && Number.isFinite(assocInputs.delta) && Number.isFinite(deltaFromRatio)) {
-    const drift = Math.abs(assocInputs.delta - deltaFromRatio);
+  if (typeof mod.deltaDeltaGAssoc === 'number' && Number.isFinite(deltaFromRatio)) {
+    const drift = Math.abs(mod.deltaDeltaGAssoc - deltaFromRatio);
     if (drift > 0.2) {
       warnings.push(`ΔΔG_assoc and r_assoc disagree by ${drift.toFixed(2)} kcal/mol. Check temperature inputs.`);
       setFieldSeverity(elements.fields.deltaAssocLabel, 'warning');
@@ -498,149 +422,6 @@ function updateLibraryActionState() {
   if (elements.libraryApplyOverlays) elements.libraryApplyOverlays.disabled = !hasSelection;
   if (elements.libraryOpenBifurcation) elements.libraryOpenBifurcation.disabled = !hasSelection;
   if (elements.libraryOpenHeatmap) elements.libraryOpenHeatmap.disabled = !hasSelection;
-}
-
-function renderSimpleMode() {
-  const simple = elements.simple;
-  if (!simple?.root) return;
-  const mod = currentMod();
-  simple.root.classList.remove('hidden');
-  if (!mod) {
-    simple.empty?.classList.remove('hidden');
-    simple.content?.classList.add('hidden');
-    simple.prev?.setAttribute('disabled', 'disabled');
-    simple.next?.setAttribute('disabled', 'disabled');
-    return;
-  }
-  simple.empty?.classList.add('hidden');
-  simple.content?.classList.remove('hidden');
-  ensureStepWorkflowState(mod, currentStep);
-  renderSimpleStepper(mod);
-  updateSimpleSections();
-}
-
-function renderSimpleStepper(mod) {
-  const container = elements.simple?.stepper;
-  if (!container) return;
-  container.innerHTML = '';
-  const workflow = mod.workflow || {};
-  SIMPLE_STEPS.forEach((step) => {
-    const state = workflow[step.id]
-      || (step.id === DEFAULT_STEP ? WORKFLOW_STEP_STATES.inProgress : WORKFLOW_STEP_STATES.incomplete);
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'wb-stepper-item' + (currentStep === step.id ? ' active' : '');
-    button.dataset.step = step.id;
-    button.setAttribute('role', 'tab');
-    button.setAttribute('aria-selected', currentStep === step.id ? 'true' : 'false');
-    button.setAttribute('aria-controls', `step-${step.id}`);
-    button.innerHTML = `
-      <span class="wb-stepper-icon">${stateIcon(state)}</span>
-      <span class="wb-stepper-label">${step.label}</span>
-      <span class="wb-stepper-sub">${step.subtitle}</span>
-    `;
-    button.addEventListener('click', () => setCurrentStep(step.id));
-    container.appendChild(button);
-  });
-  const currentIndex = STEP_IDS.indexOf(currentStep);
-  if (elements.simple?.prev) {
-    elements.simple.prev.disabled = currentIndex <= 0;
-  }
-  if (elements.simple?.next) {
-    const isLast = currentIndex >= STEP_IDS.length - 1;
-    elements.simple.next.disabled = isLast;
-    elements.simple.next.textContent = isLast ? 'Next' : 'Next';
-  }
-}
-
-function updateSimpleSections() {
-  SIMPLE_STEPS.forEach((step) => {
-    const section = document.getElementById(`step-${step.id}`);
-    if (!section) return;
-    section.classList.toggle('active', currentStep === step.id);
-  });
-}
-
-function ensureStepWorkflowState(mod, step) {
-  if (!mod) return;
-  const workflow = { ...(mod.workflow || {}) };
-  let changed = false;
-  SIMPLE_STEPS.forEach((entry) => {
-    if (!workflow[entry.id]) {
-      workflow[entry.id] = entry.id === DEFAULT_STEP ? WORKFLOW_STEP_STATES.inProgress : WORKFLOW_STEP_STATES.incomplete;
-      changed = true;
-    }
-  });
-  if (workflow[step] === WORKFLOW_STEP_STATES.incomplete) {
-    workflow[step] = WORKFLOW_STEP_STATES.inProgress;
-    changed = true;
-  }
-  if (changed) updateMod({ workflow });
-}
-
-function setCurrentStep(step) {
-  const sanitized = sanitizeStep(step) || DEFAULT_STEP;
-  if (sanitized === currentStep) return;
-  currentStep = sanitized;
-  persistPrefs({ mode: currentMode, lastVisitedStep: currentStep });
-  updateUrlMode(currentMode, currentStep);
-  const mod = currentMod();
-  if (mod) ensureStepWorkflowState(mod, currentStep);
-  renderSimpleMode();
-  scrollToSimpleSection(currentStep);
-}
-
-function scrollToSimpleSection(step) {
-  const target = document.getElementById(`step-${step}`);
-  if (!target) return;
-  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function handleSimplePrev() {
-  const index = STEP_IDS.indexOf(currentStep);
-  if (index <= 0) return;
-  setCurrentStep(STEP_IDS[index - 1]);
-}
-
-function handleSimpleNext() {
-  const index = STEP_IDS.indexOf(currentStep);
-  if (index >= STEP_IDS.length - 1) return;
-  setCurrentStep(STEP_IDS[index + 1]);
-}
-
-function handleModeToggle() {
-  const nextMode = currentMode === 'simple' ? 'detail' : 'simple';
-  applyMode(nextMode);
-}
-
-function applyMode(mode) {
-  const sanitized = sanitizeMode(mode) || 'simple';
-  currentMode = sanitized;
-  persistPrefs({ mode: currentMode, lastVisitedStep: currentStep });
-  updateUrlMode(currentMode, currentStep);
-  const isSimple = currentMode === 'simple';
-  if (elements.detailRoot) elements.detailRoot.classList.toggle('hidden', isSimple);
-  if (elements.simple?.root) elements.simple.root.classList.toggle('hidden', !isSimple);
-  if (elements.modeBadge) elements.modeBadge.textContent = isSimple ? 'Simple Mode' : 'Detail Mode';
-  if (elements.modeToggle) {
-    elements.modeToggle.textContent = isSimple ? 'Switch to Detail Mode' : 'Switch to Simple Mode';
-    elements.modeToggle.classList.toggle('secondary', !isSimple);
-  }
-  if (isSimple) {
-    renderSimpleMode();
-  } else {
-    populateForm();
-    populateDerived();
-  }
-}
-
-function updateUrlMode(mode, step) {
-  const url = new URL(window.location.href);
-  url.searchParams.set('wbv', '2');
-  url.searchParams.set('mode', mode);
-  if (mode === 'simple' && step) url.searchParams.set('step', step);
-  else url.searchParams.delete('step');
-  window.history.replaceState({}, '', url.toString());
 }
 
 function appendFitHistory(entry, mod) {
@@ -1252,14 +1033,13 @@ function onFieldChange(evt) {
   } else if (id === 'notes') updateMod({ notes: value || undefined });
   else if (id === 'deltaAssoc') {
     const num = value === '' ? undefined : Number(value);
-    const assocInputs = getAssocInputs(mod);
     if (value !== '' && !Number.isFinite(num)) {
-      fields.deltaAssoc.value = assocInputs.delta === null || assocInputs.delta === undefined ? '' : assocInputs.delta;
+      fields.deltaAssoc.value = mod.deltaDeltaGAssoc ?? '';
       return;
     }
     const payload = {
       deltaDeltaGAssoc: num,
-      assocSource: num === undefined ? (Number.isFinite(resolveRAssoc(mod)) ? 'ratio' : undefined) : 'delta',
+      assocSource: num === undefined ? (mod.rAssoc ? 'ratio' : undefined) : 'delta',
     };
     if (num !== undefined) payload.rAssoc = undefined;
     updateMod(payload);
@@ -1279,11 +1059,10 @@ function onFieldChange(evt) {
       setFieldSeverity(elements.fields.rAssocLabel, 'error');
       return;
     }
-    const assocInputs = getAssocInputs(mod);
     updateMod({
       rAssoc: num,
-      deltaDeltaGAssoc: num === undefined ? (assocInputs.mode === 'delta' ? assocInputs.delta : undefined) : undefined,
-      assocSource: num === undefined ? (assocInputs.mode === 'delta' ? 'delta' : undefined) : 'ratio',
+      deltaDeltaGAssoc: num === undefined ? mod.deltaDeltaGAssoc : undefined,
+      assocSource: num === undefined ? (typeof mod.deltaDeltaGAssoc === 'number' ? 'delta' : undefined) : 'ratio',
     });
     syncDeltaField();
   }
@@ -1310,7 +1089,7 @@ function syncDeltaField() {
 
 function handleAdd() {
   const id = crypto.randomUUID ? crypto.randomUUID() : `mod-${Date.now()}`;
-  const baseMod = {
+  const newMod = {
     id,
     label: 'New modification',
     temperatureC: 37,
@@ -1319,19 +1098,14 @@ function handleAdd() {
     rAssoc: 1,
     assocSource: 'ratio',
   };
-  const normalized = upgradeLegacyModifications([baseMod]).mods[0] || baseMod;
-  upsertModification(normalized);
+  upsertModification(newMod);
   mods = loadModifications();
-  selectedId = normalized.id;
+  selectedId = id;
   renderList();
   populateForm();
   updateBindingTable();
   updateStatusBanner();
   updateLibraryActionState();
-  if (currentMode === 'simple') {
-    if (currentStep !== DEFAULT_STEP) setCurrentStep(DEFAULT_STEP);
-    else renderSimpleMode();
-  }
 }
 
 function handleDelete() {
@@ -1346,7 +1120,6 @@ function handleDelete() {
   populateForm();
   updateBindingTable();
   updateStatusBanner();
-  if (currentMode === 'simple') renderSimpleMode();
 }
 
 function setActive() {
@@ -1356,7 +1129,6 @@ function setActive() {
   updateStatusBanner();
   renderList();
   updateBindingTable();
-  if (currentMode === 'simple') renderSimpleMode();
 }
 
 function clearActive() {
@@ -1364,7 +1136,6 @@ function clearActive() {
   updateStatusBanner();
   renderList();
   updateBindingTable();
-  if (currentMode === 'simple') renderSimpleMode();
 }
 
 function toggleOverlay(evt) {
@@ -1411,7 +1182,6 @@ function setActiveFromSelection(){
   populateForm();
   updateStatusBanner();
   renderList();
-  if (currentMode === 'simple') renderSimpleMode();
 }
 
 function applyOverlaysFromSelection(){
@@ -1452,10 +1222,6 @@ function openPageWithOverlays(path, query = {}) {
       if (val !== undefined && val !== null) params.set(key, String(val));
     });
   }
-  params.set('wbv', '2');
-  params.set('mode', currentMode);
-  if (currentMode === 'simple') params.set('step', currentStep);
-  else params.delete('step');
   if (activeId) params.set('active', activeId);
   const overlayParam = overlays.filter((id) => id && id !== activeId);
   if (overlayParam.length) params.set('overlays', overlayParam.join(','));
@@ -1463,7 +1229,6 @@ function openPageWithOverlays(path, query = {}) {
 }
 
 function init() {
-  persistPrefs({ mode: currentMode, lastVisitedStep: currentStep });
   ensureSelectedExists();
   populateChargeFilterOptions();
   if (elements.chargeFilter) {
@@ -1472,10 +1237,6 @@ function init() {
       renderList();
     });
   }
-  if (elements.modeToggle) elements.modeToggle.addEventListener('click', handleModeToggle);
-  elements.simple?.prev?.addEventListener('click', handleSimplePrev);
-  elements.simple?.next?.addEventListener('click', handleSimpleNext);
-  elements.simple?.create?.addEventListener('click', () => handleAdd());
   if (elements.librarySetActive) elements.librarySetActive.addEventListener('click', setActiveFromSelection);
   if (elements.libraryApplyOverlays) elements.libraryApplyOverlays.addEventListener('click', applyOverlaysFromSelection);
   if (elements.libraryOpenBifurcation) {
@@ -1489,7 +1250,6 @@ function init() {
   populateForm();
   updateStatusBanner();
   updateBindingTable();
-  applyMode(currentMode);
 
   elements.addBtn.addEventListener('click', handleAdd);
   elements.deleteBtn.addEventListener('click', handleDelete);

@@ -52,10 +52,6 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 | **D5. KaTeX integration & docs** | Load KaTeX from CDN in Workbench, render math explanations, update documentation/test notes accordingly. |
 | D6. QA & regression | Execute manual matrix, extend regression harness when fetch shim lands, capture release notes. |
 
-**Progress — 2025-10-05**
-- D1 schema migration implemented (Phase A): new storage helpers, nested inputs, workflow defaults, and preferences persisted.
-- D2 Simple Mode shell delivered (Phase B): header toggle + routing, stepper skeleton, Simple Mode sections/empty state, `wbv=2` + `mode`/`step` deep links.
-
 ## 2. Testing Matrix
 - **Unit:** importer, fitter, binding curve utilities, invariant math.
 - **Integration:** Fit UI flows, card sync → overlays, Library actions, preset toggles.
