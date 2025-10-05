@@ -93,10 +93,31 @@ This plan translates `docs/new-Implementation-request.md` into actionable work. 
    - Audit `buildSimulationVariants` usage of `mod.rPoly` / `mod.rNick`; decide whether to read from `inputs` or continue relying on migration to keep top-level fields synced (the latter simplifies Phase A as long as normalization updates them).
 
 ### Phase B — Simple Mode Shell & Navigation (2–3 days)
-1. Implement `mode=simple|detail` routing in `workbench/index.html` with header toggle and localStorage persistence.
-2. Build shared stepper component with statuses and CTA controls; integrate with store progress state.
-3. Layout Simple Mode sections: header, step area, footer explanation placeholder (KaTeX container).
-4. Wire deep-link synchronisation (`wbv=2`) so outgoing links include the new version tag; adjust receivers to accept `wbv` ≥ 1.
+1. **Routing & bootstrap**
+   - Read `mode` query parameter (`simple`/`detail`) on load; fallback to stored preference (`pp_workbench_prefs_v1.mode`) or default `simple`.
+   - Append/replace history state when user toggles modes so the URL stays in sync without full reload.
+   - Guard against unknown values by coercing to `simple` and logging for debugging.
+2. **Header toggles & layout chrome**
+   - Add header bar with app title, mode toggle button, and link back to Simulator/Bifurcation/Heatmap.
+   - Toggle button should visually indicate current mode and persist choice via `saveWorkbenchPrefs` (Phase A helper).
+   - When switching to Detail Mode, hide Simple Mode wrapper and reveal existing layout (CSS class toggle to avoid DOM duplication).
+3. **Stepper component**
+   - Create reusable `<div class="wb-stepper">` driven by `mod.workflow` (fallback to defaults when null).
+   - Each step cell shows label, state icon (🟡/🟢), and optional subtitle.
+   - Provide `Next`/`Back` CTA row; hooking the CTAs updates workflow state and scrolls to target section.
+   - Store `lastVisitedStep` in preferences so returning users resume where they left off.
+4. **Simple Mode content skeleton**
+   - Define four sections (`design`, `predict`, `identify`, `compare`) with minimal copy placeholders.
+   - Each section should have dedicated container elements (`id="step-design"` etc.) for later wiring.
+   - Include KaTeX-ready footer panel (`<section id="math-explainer" data-mode="simple">`) with blank content for Phase E.
+5. **Navigation + deep links**
+   - Update Library action buttons to include `wbv=2` and current `mode` plus selected `step` when generating URLs.
+   - Ensure receivers (Simulator/Bifurcation/Heatmap) ignore unknown `mode`/`step` params but preserve `wbv` for future compatibility.
+   - Add TIP banner describing the one-click pathway to detail mode for advanced options.
+6. **Fallback behaviour**
+   - If no modifications exist, Simple Mode should display an empty state encouraging creation (button reuses existing `addModBtn`).
+   - When user switches back to Detail Mode, ensure forms reflect underlying card immediately (call `populateForm`).
+   - Provide screen-reader friendly ordering (stepper before content) and ensure tab order cycles logically.
 
 ### Phase C — Step Implementations (main effort, 5–7 days)
 1. Step① 設計
