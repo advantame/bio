@@ -4,11 +4,18 @@
 <link rel="stylesheet" href="../styles/base.css" onerror="this.remove()">
 <style>
   body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; margin: 16px; background:#f8fafc; }
+  .hidden { display:none !important; }
   .wrap { display:flex; flex-direction:column; gap:16px; }
   .card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:18px; box-shadow:0 1px 2px rgba(15,23,42,0.06); }
-  .nav { display:flex; gap:12px; flex-wrap:wrap; padding:10px 12px; border:1px solid #e2e8f0; border-radius:12px; background:#fff; }
-  .nav a { color:#2563eb; text-decoration:none; }
-  .nav a:hover { text-decoration:underline; }
+  .wb-header { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:16px; padding:12px 16px; border:1px solid #e2e8f0; border-radius:14px; background:#fff; }
+  .wb-header-title { font-weight:700; font-size:1.1rem; color:#0f172a; }
+  .wb-header-nav { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:0.92rem; }
+  .wb-header-nav a { color:#2563eb; text-decoration:none; }
+  .wb-header-nav a:hover { text-decoration:underline; }
+  .wb-header-controls { display:flex; gap:10px; align-items:center; }
+  .wb-mode-badge { font-size:0.85rem; padding:4px 10px; border-radius:999px; background:#e2e8f0; color:#0f172a; }
+  .wb-mode-toggle { padding:8px 14px; border-radius:999px; border:1px solid #2563eb; background:#2563eb; color:#fff; font-size:0.9rem; cursor:pointer; }
+  .wb-mode-toggle.secondary { background:#fff; color:#2563eb; }
   .layout { display:grid; grid-template-columns: 320px 1fr; gap:18px; }
   @media (max-width:1100px) { .layout { grid-template-columns: 1fr; } }
 
@@ -52,6 +59,29 @@
 
   .status-banner { padding:10px 12px; border-radius:10px; background:#e0f2fe; border:1px solid #bae6fd; color:#0c4a6e; font-size:0.9rem; }
 
+  .wb-simple { display:flex; flex-direction:column; gap:18px; }
+  .wb-simple.hidden { display:none !important; }
+  .wb-simple-tip { background:#f1f5f9; border:1px solid #cbd5e1; border-radius:12px; padding:14px 16px; color:#0f172a; font-size:0.9rem; }
+  .wb-simple-empty { border:1px dashed #cbd5e1; border-radius:14px; padding:28px 24px; text-align:center; background:#fff; }
+  .wb-simple-empty p { margin:0 0 12px; color:#475569; font-size:0.95rem; }
+  .wb-simple-empty button { padding:10px 16px; }
+  #simpleContent { display:flex; flex-direction:column; gap:18px; }
+  .wb-stepper { display:flex; gap:12px; overflow-x:auto; padding:8px 0; }
+  .wb-stepper-item { border:1px solid #e2e8f0; background:#fff; border-radius:12px; padding:10px 12px; min-width:150px; display:flex; flex-direction:column; gap:4px; cursor:pointer; transition:border-color 0.15s ease, background 0.15s ease; text-align:left; }
+  .wb-stepper-item.active { border-color:#2563eb; background:#e0ecff; }
+  .wb-stepper-item:focus { outline:2px solid #2563eb; outline-offset:2px; }
+  .wb-stepper-icon { font-size:1.1rem; }
+  .wb-stepper-label { font-weight:600; color:#0f172a; font-size:0.92rem; }
+  .wb-stepper-sub { font-size:0.8rem; color:#475569; }
+  .wb-stepper-controls { display:flex; gap:12px; }
+  .wb-stepper-controls button { flex:1; }
+  .wb-step-card { border:1px solid #e2e8f0; border-radius:14px; padding:18px 20px; background:#fff; display:flex; flex-direction:column; gap:10px; }
+  .wb-step-card h3 { margin:0; font-size:1.05rem; color:#0f172a; }
+  .wb-step-card p { margin:0; font-size:0.9rem; color:#475569; }
+  .wb-step-card.active { border-color:#2563eb; box-shadow:0 0 0 2px rgba(37,99,235,0.1); }
+  .wb-step-card[data-step] { scroll-margin-top:80px; }
+  .wb-detail.hidden { display:none !important; }
+
   .accordion { display:flex; flex-direction:column; gap:12px; }
   .accordion details { border:1px solid #cbd5e1; border-radius:12px; background:#fff; padding:12px 14px; }
   .accordion summary { cursor:pointer; font-weight:600; color:#0f172a; }
@@ -78,23 +108,63 @@
   .status-pill.err { background:#fee2e2; color:#991b1b; }
 </style>
 <div class="wrap">
-  <div class="nav">
-    <a href="../">Home</a>
-    <span>·</span>
-    <a href="../simulator/">Simulator</a>
-    <span>·</span>
-    <a href="../bifurcation/">Bifurcation</a>
-    <span>·</span>
-    <a href="../heatmap/">Heatmap</a>
-    <span>·</span>
-    <strong>Modification Workbench</strong>
-  </div>
+  <header class="wb-header">
+    <div class="wb-header-title">Modification Workbench</div>
+    <nav class="wb-header-nav" aria-label="Workbench navigation">
+      <a href="../">Home</a>
+      <span>·</span>
+      <a href="../simulator/">Simulator</a>
+      <span>·</span>
+      <a href="../bifurcation/">Bifurcation</a>
+      <span>·</span>
+      <a href="../heatmap/">Heatmap</a>
+    </nav>
+    <div class="wb-header-controls">
+      <span id="modeBadge" class="wb-mode-badge">Simple Mode</span>
+      <button id="modeToggleBtn" class="wb-mode-toggle" type="button">Switch to Detail Mode</button>
+    </div>
+  </header>
 
   <div class="status-banner" id="statusBanner" hidden></div>
 
   <div class="layout">
     <div class="card">
-      <div class="section">
+      <div id="simpleModeRoot" class="wb-simple hidden" aria-live="polite">
+        <div id="simpleEmptyState" class="wb-simple-empty">
+          <p>Simple Mode is ready when you create or select a modification.</p>
+          <button id="simpleCreateBtn" type="button" class="primary">New Modification</button>
+        </div>
+        <div id="simpleContent" class="hidden">
+          <div id="simpleTip" class="wb-simple-tip">TIP: Need advanced controls? Switch to Detail Mode at any time—your inputs stay in sync.</div>
+          <div id="simpleStepper" class="wb-stepper" role="tablist" aria-label="Simple mode steps"></div>
+          <div class="wb-stepper-controls">
+            <button id="simplePrevStep" type="button">Back</button>
+            <button id="simpleNextStep" type="button" class="primary">Next</button>
+          </div>
+          <section id="step-design" class="wb-step-card" data-step="design" tabindex="-1">
+            <h3>① 設計（Design）</h3>
+            <p>Guided inputs will live here soon. For now, use Detail Mode to adjust association, Nb, and ETSSB parameters.</p>
+          </section>
+          <section id="step-predict" class="wb-step-card" data-step="predict" tabindex="-1">
+            <h3>② 予測（Predict）</h3>
+            <p>Derived metrics and quick-launch simulations will appear in this panel during Phase C.</p>
+          </section>
+          <section id="step-identify" class="wb-step-card" data-step="identify" tabindex="-1">
+            <h3>③ 同定（Identify）</h3>
+            <p>CSV fitting shortcuts will surface here. Until then, continue using the Detail Mode Fit tools below.</p>
+          </section>
+          <section id="step-compare" class="wb-step-card" data-step="compare" tabindex="-1">
+            <h3>④ 比較（Compare）</h3>
+            <p>Overlay comparisons and export options will move into this step soon.</p>
+          </section>
+          <section id="math-explainer" class="wb-step-card" data-mode="simple" tabindex="-1">
+            <h3>数式リファレンス</h3>
+            <p>KaTeX-rendered equations arrive in Phase E. Placeholder for k₁′, b′, g′, β′, and conversion notes.</p>
+          </section>
+        </div>
+      </div>
+      <div id="detailModeRoot" class="wb-detail">
+        <div class="section">
         <h3>Library</h3>
         <label class="note" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
           Charge filter
@@ -211,7 +281,7 @@
   </div>
 </div>
 
-  <div class="card fit-card">
+  <div class="card fit-card wb-detail">
     <div class="section">
       <h3>Fit (Prey-only)</h3>
       <p class="note">Drop a Prey-only fluorescence CSV to estimate <code>k1'</code> and <code>b'</code>, then project them onto the current modification card.</p>
