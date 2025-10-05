@@ -51,6 +51,42 @@ This plan translates `docs/new-Implementation-request.md` into actionable work. 
    - Shared constants: define enumerations for step states and input modes to avoid string drift.
 6. **Documentation sync**
    - Update specification, roadmap, and tests docs (already noted) with explicit schema tables once implementation nears.
+7. **Proposed helper signatures**
+   ```js
+   export function upgradeLegacyModifications(rawMods) {
+     const upgraded = [];
+     let changed = false;
+     for (const mod of rawMods || []) {
+       const next = normalizeModification(mod);
+       if (next !== mod) changed = true;
+       upgraded.push(next);
+     }
+     return { mods: upgraded, changed };
+   }
+
+   function normalizeModification(mod) {
+     const schemaVersion = mod.schemaVersion ?? 1;
+     if (schemaVersion >= 2) {
+       return ensureDerivedCache(mod);
+     }
+     const upgraded = {
+       ...mod,
+       schemaVersion: 2,
+       inputs: buildInputsFromLegacy(mod),
+       derived: recomputeDerived(mod),
+       workflow: inferWorkflow(mod),
+     };
+     return upgraded;
+   }
+
+   export function ensureDerivedCache(mod, baseParams = BASE_CONTEXT) {
+     const computed = computeEffectiveParameters(baseParams, mod);
+     return { ...mod, derived: { ...computed, updatedAt: Date.now() } };
+   }
+   ```
+   - `buildInputsFromLegacy` sets default modes (`ratio`) and nests optional concentration placeholders.
+   - `recomputeDerived` reuses `computeEffectiveParameters` but preserves top-level ratios for legacy callers until fully refactored.
+   - `inferWorkflow` marks `identify` as `done` when `mod.fitHistory?.length` truthy; same for titration vs `compare` step readiness.
 
 ### Phase B — Simple Mode Shell & Navigation (2–3 days)
 1. Implement `mode=simple|detail` routing in `workbench/index.html` with header toggle and localStorage persistence.
