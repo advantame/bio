@@ -25,7 +25,7 @@ A Rust + WebAssembly + Canvas web app to explore a DNA-based predator–prey osc
   - `workbench/` — Modification Workbench UI (design, overlays, state management)
 - `docs/archive/plan.md` — Initial roadmap/design doc (archived for historical reference)
 - `docs/new-Implementation-request.md` — Workbench overhaul requirements (Simple Mode, guided flow, KaTeX)
-- `docs/workbench-simple-mode-plan.md` — Implementation plan derived from the new request
+- `docs/workbench-simple-mode-plan.md` — Current phased implementation plan (Simple Mode rollout Phases A–F)
 - `.gitignore` — ignores build artifacts (`crate/target/`, `web/pkg/`)
 - `netlify.toml`, `netlify-build.sh` — build config (wasm-pack) for deployment
 

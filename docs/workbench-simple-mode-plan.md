@@ -120,36 +120,92 @@ This plan translates `docs/new-Implementation-request.md` into actionable work. 
    - Provide screen-reader friendly ordering (stepper before content) and ensure tab order cycles logically.
 
 ### Phase C — Step Implementations (main effort, 5–7 days)
-1. Step① 設計
-   - Preset picker (SI defaults + new onboarding set for Nb / ETSSB scenarios).
-   - Concentration/ratio forms with inline validation (bounds per request) and helper copy.
-   - Auto-save to active card; mark step `done` when inputs valid.
-2. Step② 予測
-   - Derived parameter computation (reuse `computeEffectiveParameters`; extend for dominance classification).
-   - Live preview cards (baseline vs active) with Δ display.
-   - Call-out to run Simulator/Bifurcation/Heatmap; ensure KaTeX formula references.
-3. Step③ 同定
-   - Streamlined CSV import (reuse existing importer with simplified UI wrapper).
-   - Minimal option set (Huber toggle, baseline window) with advanced link to Detail Mode.
-   - On successful fit, propagate results to card, append to history, flag step `done`.
-4. Step④ 比較
-   - Library table filtered to overlays; quick actions for deep links.
-   - Binding summary table (active vs overlays) with derived metrics.
+1. **Step① 設計（Design）**
+   - Presets:
+     - Include SI baseline, “Nb titration” (pre-populates concentration fields), and “ETSSB booster”.
+     - Selecting a preset immediately updates active card via migration helper; display toast confirming change.
+   - Form inputs:
+     - Associate toggle between ratio/ΔΔG (reuse existing lock UI but show inline formula snippet rendered via KaTeX).
+     - Nb section: radio buttons for `比率` vs `濃度 (U/mL)`; when in concentration mode, show numeric input + recommended range helper text; compute ratio via helper and store both representations.
+     - ETSSB section: similar ratio/concentration toggle with optional hairpin checkbox (auto-enables when hairpin concentration input present).
+     - All inputs debounce-save to `updateMod` (500 ms) with optimistic UI; errors surface inline with `field-warning/field-error` classes.
+   - Completion logic:
+     - Step marked `done` when required fields valid (association + at least one of Nb/ETSSB in-range).
+     - Persist to `workflow.design = 'done'` and advance to Step② when user clicks “次へ”.
+2. **Step② 予測（Predict）**
+   - Derived panel:
+     - Display baseline vs active cards side-by-side showing k₁′, b′, g′, β′, dominance tags, and Δ% badges.
+     - Provide toggle to include overlays (limited to 3) with preview chips.
+   - Quick actions:
+     - Buttons: “Simulatorで確認”, “分岐図で比較”, “ヒートマップを見る”; each opens new tab with `wbv=2`, `mode=simple`, and serialized overlays.
+     - Show KaTeX teaser referencing formulas used (links to footer explanation).
+   - Completion logic: mark `predict` done once derived metrics computed without warnings (i.e., ratios within supported range). If warnings present, display caution but allow manual override via “完了としてマーク” button.
+3. **Step③ 同定（Identify/Fit）**
+   - UI simplification:
+     - Keep drag-drop but hide advanced importer options behind expandable “詳細設定” matching Detail Mode.
+     - Default inputs set from active card (pol, G, N0). Provide inline description of expected CSV headers.
+   - Flow:
+     - On file load, run importer + fit; show progress indicator.
+     - After successful fit, show summary cards (r_poly, r_nick updates, CI badges). Offer “詳細モードで編集” link to jump to legacy fit view pre-populated.
+   - State updates:
+     - Append to `fitHistory`, update `derived`, switch workflow step to `done`.
+     - If fit fails, keep step `in_progress` and surface retry guidance.
+4. **Step④ 比較（Compare）**
+   - Overlay selection: embed condensed library table showing active + up to 4 overlays with checkboxes; integrates with global library state.
+   - Comparison table: columns for baseline/active/overlays, rows for k₁′, b′, g′, β′, dominance, r_assoc, Nb conc, ETSSB conc; highlight deltas vs baseline.
+   - Export options: “CSVダウンロード” for comparison snapshot (mirrors reporting milestone) and deep links for bifurcation/heatmap with prefilled overlays.
+   - Completion logic: mark `compare` done once at least one overlay is selected or user explicitly confirms they only need baseline vs active.
+5. **Shared behaviours**
+   - Each step records timestamps (`workflowAudit` array) for analytics; optional but keep structure ready.
+   - CTA bar respects validation: disable “次へ” when current step has blocking errors.
+   - Provide contextual help tooltips linking to Detail Mode sections.
 
 ### Phase D — Detail Mode Enhancements (2–3 days)
-1. Insert memo block / compact stepper to mirror Simple Mode progress.
-2. Add concentration/ratio toggles for Nb / ETSSB forms; keep layout consistent.
-3. Update tooltips and validation messages; ensure shared KaTeX explanation section accessible here too.
+1. **Compact stepper & memo**
+   - Add a slim step indicator above the existing form using the same `workflow` state (icons only, hover reveals labels) so advanced users stay aligned with Simple Mode progress.
+   - Provide memo textarea (per card) for lab notes; store in `mod.notes` (already present) but surface with character count + autosave.
+2. **Input toggles parity**
+   - Extend existing form to show Nb/ETSSB ratio↔濃度 toggles identical to Simple Mode, reusing helper components to avoid divergence.
+   - When toggles switch to concentration mode, display derived ratio read-only field so advanced users can verify conversions.
+3. **KaTeX access & tooltips**
+   - Insert collapsible “数式リファレンス” panel in Detail Mode that reuses the KaTeX footer fragment.
+   - Update tooltips (hairpin, ratio bounds, ΔΔG warnings) to reference the same wording as Simple Mode for consistency.
+4. **Migration bindings**
+   - Ensure conversions update both nested `inputs.*` and legacy top-level fields until all call sites refactored.
+   - Add developer console warnings when legacy-only fields are edited to encourage future cleanup.
 
 ### Phase E — KaTeX Integration & Documentation (1 day)
-1. Inject KaTeX `<link>` / `<script>` tags in Workbench HTML; lazy-load explanation markup when section visible.
-2. Author math explanation Markdown/HTML fragments (k₁′, b′, g′, β′, ΔΔG ↔ r conversions, Nb hill fit, ETSSB opening probability).
-3. Verify rendering in both modes and adjust typography for accessibility.
+1. **Asset loading**
+   - Insert `<link rel="stylesheet">` and `<script>` tags pointing to `https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/…`; defer script execution and trigger `renderMathInElement` once loaded.
+   - Provide fallback CSS class `.katex-fallback` to display plaintext formulas if CDN fails (set via timeout/error handler).
+2. **Content authoring**
+   - Create `web/workbench/math-explainer.html` partial or inline template strings detailing:
+     - SI equations for k₁′, b′, g′, β′.
+     - ΔΔG↔r conversion (`r = e^{-ΔΔG/(RT)}`) with temperature note.
+     - Nb concentration→ratio mapping (power-law / Hill alternative).
+     - ETSSB concentration→f_open and polymerase scaling relationships.
+   - Each section includes short Japanese explanation + formula block (KaTeX `\[` … `\]`).
+3. **Rendering pipeline**
+   - When Simple Mode footer mounts, inject explainer HTML and call KaTeX render; allow Detail Mode panel to reuse the same markup.
+   - Ensure client-side navigation (mode toggles) does not double render; guard with flag.
+   - Add basic typography tweaks (font size, spacing) and accessible descriptions (ARIA labels).
+4. **Documentation**
+   - Update `docs/specification.md` with reference to KaTeX CDN version and failure fallback.
+   - Note testing requirement in `docs/tests.md` for verifying KaTeX load failure path.
 
 ### Phase F — QA, Regression, Docs Sync (1–2 days)
-1. Extend `tests/regression.js` once fetch shim added to at least cover `computeEffectiveParameters` invariants invoked via store.
-2. Manual test matrix covering stepper flow, deep links, KaTeX fallback, localStorage migrations.
-3. Update docs (`specification.md`, roadmap, tests) and mark checked items.
+1. **Automated checks**
+   - Introduce fetch shim (Node ≥18 with `--experimental-fetch` or lightweight polyfill) so regression script can import `web/core.js`.
+   - Add new scenario exercising migration helper: load synthetic legacy card JSON, run upgrade, assert nested inputs + top-level ratios align.
+   - Extend regression script to simulate Simple Mode navigation using JSDOM or modular helper (focus on compute-level checks if DOM heavy).
+2. **Manual QA matrix**
+   - Browsers: latest Chrome, Firefox, Edge; confirm mode toggling, stepper progression, deep links, KaTeX rendering, offline fallback.
+   - Scenario coverage: first-time user (no cards), legacy cards migration, concentration toggles, fit success/failure paths, overlay comparison.
+   - Accessibility: keyboard navigation through steppers, screen reader labels for KaTeX formulas, color contrast for warnings.
+3. **Docs & release notes**
+   - Update `docs/modification-workbench-development-plan.md` / roadmap checklist to mark Milestone D tasks done.
+   - Add KaTeX usage notes and new schema tables to `docs/specification.md`.
+   - Prepare changelog entry summarizing Simple Mode features and migration guidance.
 
 ## 2. Dependencies & Risks
 - **Fetch shim** remains prerequisite for automated regression; perform manual smoke tests until resolved.
