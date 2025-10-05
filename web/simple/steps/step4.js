@@ -444,20 +444,48 @@ function drawBifurcation(seriesList, pname) {
   ctxBif.strokeStyle = '#e5e7eb';
   ctxBif.strokeRect(L, T, W - L - R, H - T - B);
 
-  // Plot series
+  // Plot series (line chart style like legacy)
   for (const series of seriesList) {
-    ctxBif.strokeStyle = series.color;
-    ctxBif.lineWidth = series.type === 'baseline' ? 2.5 : 2;
     ctxBif.setLineDash(series.lineDash || []);
+    ctxBif.strokeStyle = series.color;
+    ctxBif.lineWidth = 1.8;
 
+    // Draw yMax line
+    ctxBif.beginPath();
+    series.xs.forEach((xVal, idx) => {
+      const x = xOf(xVal);
+      const y = yOf(series.yMax[idx]);
+      if (idx === 0) ctxBif.moveTo(x, y);
+      else ctxBif.lineTo(x, y);
+    });
+    ctxBif.stroke();
+
+    // Draw yMin line (with transparency)
+    ctxBif.save();
+    ctxBif.globalAlpha = 0.6;
+    ctxBif.beginPath();
+    series.xs.forEach((xVal, idx) => {
+      const x = xOf(xVal);
+      const y = yOf(series.yMin[idx]);
+      if (idx === 0) ctxBif.moveTo(x, y);
+      else ctxBif.lineTo(x, y);
+    });
+    ctxBif.stroke();
+    ctxBif.restore();
+
+    // Draw dots
     for (let i = 0; i < series.xs.length; i++) {
       const x = xOf(series.xs[i]);
-      const yMinPx = yOf(series.yMin[i]);
-      const yMaxPx = yOf(series.yMax[i]);
-
+      // yMax dot (filled)
       ctxBif.beginPath();
-      ctxBif.moveTo(x, yMinPx);
-      ctxBif.lineTo(x, yMaxPx);
+      ctxBif.arc(x, yOf(series.yMax[i]), 3.2, 0, Math.PI * 2);
+      ctxBif.fillStyle = series.color;
+      ctxBif.fill();
+      // yMin dot (outline)
+      ctxBif.beginPath();
+      ctxBif.arc(x, yOf(series.yMin[i]), 2.9, 0, Math.PI * 2);
+      ctxBif.strokeStyle = series.color;
+      ctxBif.lineWidth = 1.4;
       ctxBif.stroke();
     }
   }

@@ -385,6 +385,9 @@ function renderEditor() {
       <button id="step1SetActive" class="step1-preset-btn" style="flex: 1; background: #2563eb; color: white; border-color: #2563eb;">
         アクティブに設定
       </button>
+      <button id="step1ClearActive" class="step1-preset-btn" style="flex: 1; background: #6b7280; color: white; border-color: #6b7280;">
+        アクティブ解除
+      </button>
       <button id="step1ResetDefaults" class="step1-preset-btn" style="flex: 1;">
         SI デフォルトにリセット
       </button>
@@ -444,6 +447,7 @@ function attachEditorListeners() {
 
   // Actions
   document.getElementById('step1SetActive')?.addEventListener('click', setAsActive);
+  document.getElementById('step1ClearActive')?.addEventListener('click', clearActive);
   document.getElementById('step1ResetDefaults')?.addEventListener('click', resetToDefaults);
 }
 
@@ -576,6 +580,12 @@ function setAsActive() {
   updateValidationStatus();
 }
 
+function clearActive() {
+  setActiveModificationId(null);
+  renderCardList();
+  updateValidationStatus();
+}
+
 function resetToDefaults() {
   applyPreset('si_baseline');
 }
@@ -601,7 +611,16 @@ function updateValidationStatus() {
   const isValid = hasLabel && (hasAssoc || hasEnzyme) && ratiosValid;
   const isActive = selectedId === getActiveModificationId();
 
-  if (isValid && isActive) {
+  const activeId = getActiveModificationId();
+
+  if (!activeId && !selectedId) {
+    // No active card and no selection
+    statusEl.innerHTML = `
+      <div class="step1-status info">
+        ⓘ アクティブカードがありません。カードを選択して「アクティブに設定」するか、「アクティブなし」でベースラインのみを使用できます。
+      </div>
+    `;
+  } else if (isValid && isActive) {
     statusEl.innerHTML = `
       <div class="step1-status success">
         ✓ ステップ完了：カードが設定され、アクティブになっています

@@ -28,11 +28,11 @@ const STEPS = {
 // Current state
 let currentStep = 1;
 
-// DOM elements
-const stepContainer = document.getElementById('stepContainer');
-const btnBack = document.getElementById('btnBack');
-const btnNext = document.getElementById('btnNext');
-const stepLinks = document.querySelectorAll('.simple-step');
+// DOM elements (will be initialized in init())
+let stepContainer;
+let btnBack;
+let btnNext;
+let stepLinks;
 
 /**
  * Parse the current URL to determine the step
@@ -165,6 +165,17 @@ async function navigateToStep(step) {
  * Initialize the router
  */
 function init() {
+  // Get DOM elements
+  stepContainer = document.getElementById('stepContainer');
+  btnBack = document.getElementById('btnBack');
+  btnNext = document.getElementById('btnNext');
+  stepLinks = document.querySelectorAll('.simple-step');
+
+  if (!stepContainer || !btnBack || !btnNext || stepLinks.length === 0) {
+    console.error('[router] Required DOM elements not found');
+    return;
+  }
+
   // Parse URL or load from preferences
   const urlStep = parseURL();
   const prefs = loadPreferences();
@@ -205,5 +216,9 @@ function init() {
   navigateToStep(currentStep);
 }
 
-// Start the router
-init();
+// Start the router when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
