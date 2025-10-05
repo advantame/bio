@@ -1,97 +1,336 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PP-oscillation — Detail (Legacy) View</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-    }
+<meta charset="utf-8">
+<title>Detail (Legacy) View — PP-oscillation</title>
+<link rel="stylesheet" href="../styles/base.css" onerror="this.remove()">
+<style>
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; margin: 0; background:#f8fafc; }
 
-    .legacy-banner {
-      background: #f3f4f6;
-      border-bottom: 1px solid #d1d5db;
-      padding: 0.75rem 1.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-    }
+  /* Legacy mode banner */
+  .detail-banner {
+    background: #f3f4f6;
+    border-bottom: 1px solid #d1d5db;
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .detail-banner-text {
+    font-size: 0.875rem;
+    color: #374151;
+  }
+  .detail-banner-link {
+    padding: 0.5rem 1rem;
+    background: #2563eb;
+    color: white;
+    text-decoration: none;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: background 0.2s;
+  }
+  .detail-banner-link:hover {
+    background: #1d4ed8;
+  }
 
-    .legacy-banner-text {
-      font-size: 0.875rem;
-      color: #374151;
-    }
+  .main-content {
+    padding: 16px;
+  }
+  .wrap { display:flex; flex-direction:column; gap:16px; }
+  .card { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:18px; box-shadow:0 1px 2px rgba(15,23,42,0.06); }
+  .nav { display:flex; gap:12px; flex-wrap:wrap; padding:10px 12px; border:1px solid #e2e8f0; border-radius:12px; background:#fff; }
+  .nav a { color:#2563eb; text-decoration:none; }
+  .nav a:hover { text-decoration:underline; }
+  .layout { display:grid; grid-template-columns: 320px 1fr; gap:18px; }
+  @media (max-width:1100px) { .layout { grid-template-columns: 1fr; } }
 
-    .legacy-banner-link {
-      padding: 0.5rem 1rem;
-      background: #2563eb;
-      color: white;
-      text-decoration: none;
-      border-radius: 0.375rem;
-      font-size: 0.875rem;
-      font-weight: 600;
-      transition: background 0.2s;
-    }
+  .list { display:flex; flex-direction:column; gap:10px; }
+  .mod-card { border:1px solid #cbd5e1; border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; background:#f8fafc; cursor:pointer; transition: background 0.15s ease; }
+  .mod-card.active { border-color:#2563eb; background:#e0ecff; }
+  .mod-card.overlay-select { outline:2px dashed #93c5fd; }
+  .mod-card .name { font-weight:600; color:#0f172a; }
+  .mod-card .name input[type="checkbox"] { margin-left:auto; }
+  .mod-card .meta { font-size:0.85rem; color:#475569; display:flex; gap:10px; flex-wrap:wrap; }
+  .mod-actions { display:flex; gap:8px; margin-top:12px; }
+  button { border-radius:10px; border:1px solid #d4d4d8; background:#f9fafb; padding:8px 12px; cursor:pointer; font-size:0.95rem; }
+  button.primary { background:#2563eb; color:#fff; border-color:#2563eb; }
+  button.danger { color:#dc2626; border-color:#fecaca; background:#fef2f2; }
+  button:disabled { opacity:0.6; cursor:not-allowed; }
 
-    .legacy-banner-link:hover {
-      background: #1d4ed8;
-    }
+  .section { display:flex; flex-direction:column; gap:16px; }
+  .section h3 { margin:0; font-size:1.15rem; color:#0f172a; }
+  form { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:12px 16px; }
+  label { font-size:0.85rem; color:#475569; display:flex; flex-direction:column; gap:4px; }
+  input[type="text"], input[type="number"], select { padding:8px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font-size:0.95rem; color:#0f172a; }
+  .input-with-lock { display:flex; align-items:center; gap:6px; }
+  .input-with-lock input { flex:1; }
+  .lock-icon { font-size:0.9rem; opacity:0; transition:opacity 0.15s ease; }
+  .lock-icon.visible { opacity:1; }
+  .field-warning input, .field-warning select { border-color:#facc15; background:#fef9c3; }
+  .field-error input, .field-error select { border-color:#ef4444; background:#fee2e2; color:#991b1b; }
+  .derived-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:10px 16px; }
+  .derived-item { background:#f1f5f9; border-radius:10px; padding:10px 12px; }
+  .derived-item h4 { margin:0 0 4px; font-size:0.9rem; color:#0f172a; }
+  .derived-item p { margin:0; font-size:0.9rem; color:#334155; }
+  .badge { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background:#e2e8f0; color:#0f172a; font-size:0.82rem; }
+  .warn { color:#b45309; }
+  .warn strong { color:#b45309; }
+  textarea { padding:8px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit; resize:vertical; }
 
-    .legacy-content {
-      padding: 2rem;
-      max-width: 1400px;
-      margin: 0 auto;
-    }
+  .subsection { border-top:1px solid #e2e8f0; padding-top:16px; }
+  .mini-table { width:100%; border-collapse:collapse; font-size:0.88rem; }
+  .mini-table th, .mini-table td { border-bottom:1px solid #e2e8f0; padding:8px; text-align:left; }
+  .mini-table tr:last-child td { border-bottom:none; }
 
-    .placeholder {
-      padding: 4rem 2rem;
-      text-align: center;
-      background: #f9fafb;
-      border-radius: 0.5rem;
-      border: 2px dashed #d1d5db;
-    }
+  .status-banner { padding:10px 12px; border-radius:10px; background:#e0f2fe; border:1px solid #bae6fd; color:#0c4a6e; font-size:0.9rem; }
 
-    .placeholder h2 {
-      margin: 0 0 1rem 0;
-      color: #1f2937;
-    }
+  .accordion { display:flex; flex-direction:column; gap:12px; }
+  .accordion details { border:1px solid #cbd5e1; border-radius:12px; background:#fff; padding:12px 14px; }
+  .accordion summary { cursor:pointer; font-weight:600; color:#0f172a; }
+  .accordion summary::-webkit-details-marker { display:none; }
 
-    .placeholder p {
-      margin: 0 0 0.5rem 0;
-      color: #6b7280;
-    }
-  </style>
-</head>
-<body>
-  <!-- Legacy mode banner -->
-  <div class="legacy-banner">
-    <div class="legacy-banner-text">
-      📌 Detail (Legacy) View — 旧 Workbench UI
-    </div>
-    <a href="../simple/" class="legacy-banner-link">Simple Flowに戻る</a>
+  .toggle-row { display:flex; gap:12px; align-items:center; }
+  .toggle-row input[type="checkbox"] { width:18px; height:18px; }
+
+  .note { font-size:0.85rem; color:#64748b; }
+  .fit-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:12px 16px; margin-bottom:12px; }
+  .fit-card .dropzone { border:2px dashed #bfdbfe; border-radius:12px; padding:16px; text-align:center; color:#1d4ed8; background:#eff6ff; cursor:pointer; outline:none; transition:border 0.15s ease, background 0.15s ease; }
+  .fit-card .dropzone:focus, .fit-card .dropzone.dragover { border-color:#2563eb; background:#dbeafe; }
+  .fit-card .dropzone button { margin-left:8px; }
+  .fit-results { margin-top:12px; display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:12px; }
+  .fit-result-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; }
+  .fit-result-card h4 { margin:0 0 6px; font-size:0.95rem; color:#0f172a; }
+  .fit-result-card p { margin:0; font-size:0.9rem; color:#334155; }
+  .fit-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+  .hairpin-info { font-size:0.85rem; color:#0369a1; display:flex; align-items:center; gap:6px; }
+  .hairpin-info[hidden] { display:none; }
+  .status-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:8px; font-size:0.82rem; }
+  .status-pill.ok { background:#dcfce7; color:#166534; }
+  .status-pill.warn { background:#fef9c3; color:#854d0e; }
+  .status-pill.err { background:#fee2e2; color:#991b1b; }
+</style>
+
+<!-- Legacy mode banner -->
+<div class="detail-banner">
+  <div class="detail-banner-text">
+    📌 Detail (Legacy) View — Advanced Workbench UI with full controls
+  </div>
+  <a href="../simple/" class="detail-banner-link">← Simple Flowに戻る</a>
+</div>
+
+<div class="main-content">
+<div class="wrap">
+  <div class="nav">
+    <a href="../">Home</a>
+    <span>·</span>
+    <a href="../simulator/">Simulator</a>
+    <span>·</span>
+    <a href="../bifurcation/">Bifurcation</a>
+    <span>·</span>
+    <a href="../heatmap/">Heatmap</a>
+    <span>·</span>
+    <strong>Detail (Legacy) View</strong>
   </div>
 
-  <!-- Content area -->
-  <div class="legacy-content">
-    <div class="placeholder">
-      <h2>Detail (Legacy) View — Phase 6 Implementation</h2>
-      <p>This view will be a copy of the current Workbench UI with schema v2 synchronization.</p>
-      <p style="margin-top: 1rem;">
-        <strong>Implementation plan:</strong>
-      </p>
-      <ul style="text-align: left; max-width: 600px; margin: 1rem auto; color: #6b7280;">
-        <li>Add compact step indicator + mode banner</li>
-        <li>Sync new schema (inputs toggles, derived cache) with form fields</li>
-        <li>Ensure switches between Simple ⇄ Detail keep state identical</li>
-        <li>Maintain backwards compatibility for expert usage</li>
-      </ul>
-      <p style="margin-top: 2rem; font-size: 0.875rem; color: #9ca3af;">
-        For now, you can access the original Workbench at <a href="../workbench/" style="color: #2563eb;">/workbench/</a>
-      </p>
+  <div class="status-banner" id="statusBanner" hidden></div>
+
+  <div class="layout">
+    <div class="card">
+      <div class="section">
+        <h3>Library</h3>
+        <label class="note" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
+          Charge filter
+          <select id="libraryChargeFilter">
+            <option value="any">Any</option>
+            <option value="positive">Positive</option>
+            <option value="negative">Negative</option>
+            <option value="neutral">Neutral</option>
+          </select>
+        </label>
+        <div class="mod-actions" style="margin-top:4px;">
+          <button id="librarySetActive" type="button">Set selected as active</button>
+          <button id="libraryApplyOverlays" type="button">Use selected as overlays</button>
+          <button id="libraryOpenBifurcation" type="button">Open Bifurcation</button>
+          <button id="libraryOpenHeatmap" type="button">Open Heatmap</button>
+        </div>
+        <div class="list" id="modList"></div>
+        <div class="mod-actions">
+          <button id="addModBtn" class="primary">New Modification</button>
+          <button id="deleteModBtn" class="danger" disabled>Delete</button>
+        </div>
+        <p class="note">Modifications are stored locally and shared across pages. Baseline corresponds to the unmodified reference.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section">
+        <h3>Design</h3>
+        <form id="modForm">
+          <label>Label
+            <input id="label" type="text" placeholder="e.g. Lys-Gly linker" required>
+          </label>
+          <label>Amino Acid
+            <input id="amino" type="text" placeholder="Lys / Arg / custom">
+          </label>
+          <label>Temperature [°C]
+            <input id="temperature" type="number" value="37" step="0.1">
+          </label>
+          <label id="deltaAssocLabel">ΔΔG_assoc [kcal/mol]
+            <div class="input-with-lock">
+              <input id="deltaAssoc" type="number" step="0.1" placeholder="optional">
+              <span class="lock-icon" id="deltaAssocLock" title="Primary input">🔒</span>
+            </div>
+          </label>
+          <label id="rAssocLabel">r_assoc（比）
+            <div class="input-with-lock">
+              <input id="rAssoc" type="number" step="0.01" min="0" value="1">
+              <span class="lock-icon" id="rAssocLock" title="Primary input">🔒</span>
+            </div>
+          </label>
+          <label>r_poly
+            <input id="rPoly" type="number" step="0.01" min="0" value="1">
+          </label>
+          <label>r_nick
+            <input id="rNick" type="number" step="0.01" min="0" value="1">
+          </label>
+          <label>ΔΔG_fold [kcal/mol]
+            <input id="deltaFold" type="number" step="0.1" placeholder="optional">
+          </label>
+          <label>Linker length [atoms]
+            <input id="linkerLength" type="number" min="0" step="1" placeholder="optional">
+          </label>
+          <label>Linker polarity
+            <select id="linkerPolarity">
+              <option value="">—</option>
+              <option value="hydrophilic">Hydrophilic</option>
+              <option value="hydrophobic">Hydrophobic</option>
+              <option value="neutral">Neutral</option>
+            </select>
+          </label>
+          <label>Notes
+            <textarea id="notes" rows="2" placeholder="Any remarks"></textarea>
+          </label>
+        </form>
+        <div class="toggle-row">
+          <input type="checkbox" id="hairpinToggle">
+          <label for="hairpinToggle" style="margin:0;">Apply hairpin folding correction</label>
+        </div>
+        <div id="hairpinInfo" class="hairpin-info" hidden title="Hairpin folding reduces g by this opening probability factor.">
+          <span>f<sub>open</sub> = <span id="hairpinValue">—</span> (applied to g only)</span>
+        </div>
+        <div class="toggle-row">
+          <input type="checkbox" id="overlayToggle">
+          <label for="overlayToggle" style="margin:0;">Include in overlay comparisons</label>
+        </div>
+        <div class="mod-actions">
+          <button id="setActiveBtn" class="primary" disabled>Set as active</button>
+          <button id="clearActiveBtn">Clear active</button>
+          <button id="resetDefaultsBtn" type="button">Reset to SI defaults</button>
+        </div>
+      </div>
+
+      <div class="section subsection">
+        <h3>Derived Parameters</h3>
+        <div class="derived-grid" id="derivedGrid"></div>
+        <p class="note" id="warningText"></p>
+      </div>
+
+      <div class="section subsection">
+        <h3>Simulate / Map</h3>
+        <div class="accordion">
+          <details open>
+            <summary>Current bindings</summary>
+            <p class="note">The active modification will automatically retune <code>k1</code> and <code>b</code> on the Simulator, Bifurcation, and Heatmap pages. Overlays will render alongside the baseline.</p>
+            <table class="mini-table" id="bindingTable"></table>
+          </details>
+          <details>
+            <summary>Export</summary>
+            <p class="note">Export and import JSON will arrive in a later update. For now, data is preserved in-browser.</p>
+          </details>
+        </div>
+      </div>
     </div>
   </div>
-</body>
-</html>
+</div>
+
+  <div class="card fit-card">
+    <div class="section">
+      <h3>Fit (Prey-only)</h3>
+      <p class="note">Drop a Prey-only fluorescence CSV to estimate <code>k1'</code> and <code>b'</code>, then project them onto the current modification card.</p>
+      <div class="fit-grid">
+        <label>pol
+          <input id="fitPol" type="number" step="0.1" value="3.7">
+        </label>
+        <label>G
+          <input id="fitG" type="number" step="1" value="150">
+        </label>
+        <label>Time unit
+          <select id="fitTimeUnit">
+            <option value="s">seconds</option>
+            <option value="min">minutes</option>
+          </select>
+        </label>
+        <label>Baseline points
+          <input id="fitBaseline" type="number" step="1" min="1" value="10">
+        </label>
+        <label>Initial N₀ [nM]
+          <input id="fitN0" type="number" step="0.1" value="10">
+        </label>
+        <label>Loss function
+          <select id="fitLoss">
+            <option value="ols">Ordinary LS</option>
+            <option value="huber">Huber (robust)</option>
+          </select>
+        </label>
+        <label>Y→G cross-talk
+          <input id="fitCrosstalkYG" type="number" step="0.01" value="0">
+        </label>
+        <label>G→Y cross-talk
+          <input id="fitCrosstalkGY" type="number" step="0.01" value="0">
+        </label>
+        <label>Green → nM scale
+          <input id="fitGreenScale" type="number" step="0.01" value="1">
+        </label>
+      </div>
+      <div id="fitDropZone" class="dropzone" tabindex="0">
+        <span>Drop CSV here or</span>
+        <button id="fitBrowse" type="button">Browse…</button>
+        <input id="fitFile" type="file" accept=".csv,.tsv,text/csv" hidden>
+      </div>
+      <div class="note" id="fitMeta"></div>
+      <div class="note warn" id="fitWarnings" hidden></div>
+      <div class="fit-results" id="fitResults"></div>
+      <div class="fit-actions">
+        <button id="fitExportJson" type="button">Export latest fit (JSON)</button>
+        <button id="fitExportCsv" type="button">Export fit history (CSV)</button>
+      </div>
+
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0 12px;">
+
+      <h4 style="margin:0 0 8px;color:#0f172a;">G:N Titration (r<sub>assoc</sub>)</h4>
+      <p class="note">Drop a titration CSV (<code>N,F</code>) to estimate the association constant and update r<sub>assoc</sub>.</p>
+      <div class="fit-grid">
+        <label>Baseline K<sub>a</sub>
+          <input id="fitKaRef" type="number" step="0.01" value="1">
+        </label>
+        <label>Search min (log10)
+          <input id="fitKaMin" type="number" step="0.5" value="-6">
+        </label>
+        <label>Search max (log10)
+          <input id="fitKaMax" type="number" step="0.5" value="6">
+        </label>
+      </div>
+      <div id="fitTitrationDropZone" class="dropzone" tabindex="0">
+        <span>Drop titration CSV here or</span>
+        <button id="fitTitrationBrowse" type="button">Browse…</button>
+        <input id="fitTitrationFile" type="file" accept=".csv,.tsv,text/csv" hidden>
+      </div>
+      <div class="note" id="fitTitrationMeta"></div>
+      <div class="note warn" id="fitTitrationWarnings" hidden></div>
+      <div class="fit-results" id="fitTitrationResults"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script type="module" src="./workbench.js"></script>

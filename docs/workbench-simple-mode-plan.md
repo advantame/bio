@@ -76,7 +76,7 @@ This plan operationalises `docs/new-Implementation-request.md` after the October
 - [x] Schema migration and helpers (Phase 0).
 - [x] Routing + header shell with redirects (Phase 1).
 - [ ] Steps ①–④ implemented and wired (Phases 2–5).
-- [ ] Detail (legacy) parity adjustments (Phase 6).
+- [x] Detail (legacy) parity adjustments (Phase 6).
 - [ ] KaTeX math explainer with fallback (Phase 7).
 - [ ] QA + documentation updates (Phase 8).
 

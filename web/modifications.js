@@ -245,7 +245,27 @@ export function loadModifications() {
   if (needsSave) {
     writeLocalMods(upgraded);
   }
-  return upgraded;
+
+  // Add v1 compatibility properties to v2 objects for legacy UI support
+  return upgraded.map((mod) => {
+    if (mod.schemaVersion === 2) {
+      return {
+        ...mod,
+        // v1 compatibility properties (read-only, for legacy UI)
+        rAssoc: mod.inputs?.r_assoc ?? 1,
+        rPoly: mod.inputs?.r_poly ?? 1,
+        rNick: mod.inputs?.r_nick ?? 1,
+        deltaDeltaGAssoc: mod.inputs?.deltaDeltaGAssoc ?? null,
+        deltaDeltaGFold: mod.inputs?.deltaDeltaGFold ?? null,
+        temperatureC: mod.inputs?.temperatureC ?? 37,
+        useHairpin: mod.inputs?.useHairpin ?? false,
+        assocSource: mod.inputs?.assocLock ?? 'r',
+        aminoAcid: mod.inputs?.aminoAcid ?? null,
+        linker: mod.inputs?.linker ?? null,
+      };
+    }
+    return mod;
+  });
 }
 
 export function saveModifications(mods) {
@@ -487,9 +507,53 @@ export function ensureActiveExists() {
 export function upsertModification(mod) {
   const mods = loadModifications();
   const idx = mods.findIndex((m) => m.id === mod.id);
-  if (idx >= 0) mods[idx] = { ...mods[idx], ...mod };
-  else mods.push(mod);
-  saveModifications(mods);
+
+  // Normalize incoming mod to v2 schema if it has v1 properties
+  let normalized = mod;
+  if (mod.schemaVersion !== 2 && (mod.rAssoc || mod.rPoly || mod.rNick)) {
+    // Convert v1 properties to v2 schema
+    normalized = {
+      schemaVersion: 2,
+      id: mod.id || `mod-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      label: mod.label || 'Untitled modification',
+      inputs: {
+        r_assoc: mod.rAssoc ?? 1,
+        r_poly: mod.rPoly ?? 1,
+        r_nick: mod.rNick ?? 1,
+        deltaDeltaGAssoc: mod.deltaDeltaGAssoc ?? null,
+        deltaDeltaGFold: mod.deltaDeltaGFold ?? null,
+        temperatureC: mod.temperatureC ?? 37,
+        useHairpin: mod.useHairpin ?? false,
+        assocLock: mod.assocSource || (typeof mod.deltaDeltaGAssoc === 'number' ? 'delta' : 'r'),
+        Nb_nM: mod.Nb_nM ?? null,
+        ETSSB_nM: mod.ETSSB_nM ?? null,
+        aminoAcid: mod.aminoAcid ?? null,
+        linker: mod.linker ?? null,
+      },
+      derived: mod.derived ?? null,
+      workflow: {
+        fitHistory: mod.fitHistory ?? [],
+        titrationHistory: mod.titrationHistory ?? [],
+        lastModified: Date.now(),
+      },
+      notes: mod.notes ?? '',
+    };
+  }
+
+  if (idx >= 0) mods[idx] = { ...mods[idx], ...normalized };
+  else mods.push(normalized);
+
+  // Save the v2 schema (without v1 compatibility props)
+  const toSave = mods.map((m) => {
+    if (m.schemaVersion === 2) {
+      // Remove v1 compatibility properties before saving
+      const { rAssoc, rPoly, rNick, deltaDeltaGAssoc, deltaDeltaGFold, temperatureC, useHairpin, assocSource, aminoAcid, linker, ...v2Only } = m;
+      return v2Only;
+    }
+    return m;
+  });
+
+  writeLocalMods(toSave);
 }
 
 export function deleteModification(id) {

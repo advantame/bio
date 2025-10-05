@@ -51,7 +51,7 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 | **D4. Step ② 即時予測** | Embed time-series engine + derived/overlay panels (Phase 3)。| Pending |
 | **D5. Step ③ 同定** | Fit/滴定の簡素化とカード反映 (Phase 4)。| Pending |
 | **D6. Step ④ 比較** | 分岐図・ヒートマップタブ埋め込み、オーバーレイ表、出力 (Phase 5)。| Pending |
-| **D7. Detail(legacy) parity** | Compact stepper、入力同期、切替 (Phase 6)。| Pending |
+| **D7. Detail(legacy) parity** ✅ | Compact stepper、入力同期、切替 (Phase 6)。| **Done** — /web/detail/ created with legacy Workbench UI, v1↔v2 schema compatibility layer, mode banner. |
 | **D8. KaTeX & docs** | CDN読み込み＋解説パネル、仕様更新、回帰テスト強化 (Phases 7–8)。| Pending |
 
 ## 2. Testing Matrix
