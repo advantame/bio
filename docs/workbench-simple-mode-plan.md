@@ -75,7 +75,8 @@ This plan operationalises `docs/new-Implementation-request.md` after the October
 ## Deliverables Checklist
 - [x] Schema migration and helpers (Phase 0).
 - [x] Routing + header shell with redirects (Phase 1).
-- [ ] Steps ①–④ implemented and wired (Phases 2–5).
+- [x] Step ① 設計 implemented (Phase 2).
+- [ ] Steps ②–④ implemented and wired (Phases 3–5).
 - [x] Detail (legacy) parity adjustments (Phase 6).
 - [ ] KaTeX math explainer with fallback (Phase 7).
 - [ ] QA + documentation updates (Phase 8).

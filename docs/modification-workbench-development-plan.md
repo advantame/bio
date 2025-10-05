@@ -47,7 +47,7 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 | --- | --- | --- |
 | **D1. Schema & prefs** ✅ | Complete Phase 0 of the simple-flow plan (schemaVersion=2, nested inputs, workflow state, prefs key). | **Done** — modifications.js updated with v2 schema, migration, and preferences storage. |
 | **D2. Routing & shell** ✅ | Implement Phase 1 ( `/simple/:step`, redirects, shared header/stepper, Next/Back CTA、legacy URL互換）。| **Done** — /web/simple/ created with router, steps 1-4 placeholders, /detail stub, root redirect. |
-| **D3. Step ① 設計** | Build Step 1 per Phase 2 (presets、濃度↔比トグル、派生サマリー、完了条件)。| Pending |
+| **D3. Step ① 設計** ✅ | Build Step 1 per Phase 2 (presets、濃度↔比トグル、派生サマリー、完了条件)。| **Done** — Card editor with concentration↔ratio toggles, presets (SI/Nb/ETSSB), derived display, validation, auto-save. |
 | **D4. Step ② 即時予測** | Embed time-series engine + derived/overlay panels (Phase 3)。| Pending |
 | **D5. Step ③ 同定** | Fit/滴定の簡素化とカード反映 (Phase 4)。| Pending |
 | **D6. Step ④ 比較** | 分岐図・ヒートマップタブ埋め込み、オーバーレイ表、出力 (Phase 5)。| Pending |
