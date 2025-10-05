@@ -10,7 +10,10 @@ This note captures the immediate follow-on work agreed after integrating the mod
 
 ## Priority Work Queue (in order)
 0. **Launch Simple Flow (primary app)** — Full restructure.
-   - Complete Phases 0–8 in the implementation plan: schema/prefs, routing `/simple/:step`, Steps ①–④, Detail(legacy) parity, KaTeX, QA.
+   - ✅ **Phase 0 Complete** — Schema v2 migration and preferences storage implemented in `web/modifications.js`.
+   - ✅ **Phase 1 Complete** — Routing shell created at `/web/simple/` with header, stepper, CTA bar, and step placeholders.
+   - 🔄 **Phases 2–5 In Progress** — Steps ①–④ implementation (card editor, time-series, fit, comparison).
+   - ⏳ **Phases 6–8 Pending** — Detail(legacy) parity, KaTeX, QA.
    - Ensure legacy URLs redirect cleanly with preserved `active/overlays/preset` query parameters.
 1. **Finalize the Fit section** (spec §5.4, §8.1–8.3).
    - ✅ CSV import pipeline: `time, F_green[, F_yellow]` with cross-talk correction and baseline removal (§7.1).

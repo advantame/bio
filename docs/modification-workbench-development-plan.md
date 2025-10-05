@@ -43,16 +43,16 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 | C5. Regression tests | Scripted checks for oscillation-on-start, preset outputs, invariant math. _Status:_ Node harness (`tests/regression.js`) covers oscillation baseline, bifurcation timing, heatmap timing; currently fails in CI due to missing `fetch` shim—triage pending. |
 
 ### Milestone D — Simple Flow (Primary App)
-| Task | Details |
-| --- | --- |
-| **D1. Schema & prefs** | Complete Phase 0 of the simple-flow plan (schemaVersion=2, nested inputs, workflow state, prefs key). |
-| **D2. Routing & shell** | Implement Phase 1 ( `/simple/:step`, redirects, shared header/stepper, Next/Back CTA、legacy URL互換）。|
-| **D3. Step ① 設計** | Build Step 1 per Phase 2 (presets、濃度↔比トグル、派生サマリー、完了条件)。|
-| **D4. Step ② 即時予測** | Embed time-series engine + derived/overlay panels (Phase 3)。|
-| **D5. Step ③ 同定** | Fit/滴定の簡素化とカード反映 (Phase 4)。|
-| **D6. Step ④ 比較** | 分岐図・ヒートマップタブ埋め込み、オーバーレイ表、出力 (Phase 5)。|
-| **D7. Detail(legacy) parity** | Compact stepper、入力同期、切替 (Phase 6)。|
-| **D8. KaTeX & docs** | CDN読み込み＋解説パネル、仕様更新、回帰テスト強化 (Phases 7–8)。|
+| Task | Details | Status |
+| --- | --- | --- |
+| **D1. Schema & prefs** ✅ | Complete Phase 0 of the simple-flow plan (schemaVersion=2, nested inputs, workflow state, prefs key). | **Done** — modifications.js updated with v2 schema, migration, and preferences storage. |
+| **D2. Routing & shell** ✅ | Implement Phase 1 ( `/simple/:step`, redirects, shared header/stepper, Next/Back CTA、legacy URL互換）。| **Done** — /web/simple/ created with router, steps 1-4 placeholders, /detail stub, root redirect. |
+| **D3. Step ① 設計** | Build Step 1 per Phase 2 (presets、濃度↔比トグル、派生サマリー、完了条件)。| Pending |
+| **D4. Step ② 即時予測** | Embed time-series engine + derived/overlay panels (Phase 3)。| Pending |
+| **D5. Step ③ 同定** | Fit/滴定の簡素化とカード反映 (Phase 4)。| Pending |
+| **D6. Step ④ 比較** | 分岐図・ヒートマップタブ埋め込み、オーバーレイ表、出力 (Phase 5)。| Pending |
+| **D7. Detail(legacy) parity** | Compact stepper、入力同期、切替 (Phase 6)。| Pending |
+| **D8. KaTeX & docs** | CDN読み込み＋解説パネル、仕様更新、回帰テスト強化 (Phases 7–8)。| Pending |
 
 ## 2. Testing Matrix
 - **Unit:** importer, fitter, binding curve utilities, invariant math.

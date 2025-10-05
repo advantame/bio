@@ -73,11 +73,11 @@ This plan operationalises `docs/new-Implementation-request.md` after the October
 4. Capture release notes summarising new flow vs legacy view.
 
 ## Deliverables Checklist
-- [ ] Schema migration and helpers (Phase 0).
-- [ ] Routing + header shell with redirects (Phase 1).
-- [ ] Steps ①–④ implemented and wired.
-- [ ] Detail (legacy) parity adjustments.
-- [ ] KaTeX math explainer with fallback.
-- [ ] QA + documentation updates.
+- [x] Schema migration and helpers (Phase 0).
+- [x] Routing + header shell with redirects (Phase 1).
+- [ ] Steps ①–④ implemented and wired (Phases 2–5).
+- [ ] Detail (legacy) parity adjustments (Phase 6).
+- [ ] KaTeX math explainer with fallback (Phase 7).
+- [ ] QA + documentation updates (Phase 8).
 
 Follow the phases sequentially; if scope changes again, update this document and AGENTS.md immediately.

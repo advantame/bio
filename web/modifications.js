@@ -5,11 +5,215 @@
 const STORAGE_KEY_MODS = 'pp_workbench_modifications_v1';
 const STORAGE_KEY_ACTIVE = 'pp_workbench_active_mod_v1';
 const STORAGE_KEY_OVERLAY = 'pp_workbench_overlay_mods_v1';
+const STORAGE_KEY_PREFS = 'pp_workbench_prefs_v1';
 
 export const GAS_CONSTANT_KCAL = 0.00198720425864083; // kcal mol^-1 K^-1
+export const CURRENT_SCHEMA_VERSION = 2;
 
 function defaultState() {
   return [];
+}
+
+// ========================================
+// Schema Migration (v1 → v2)
+// ========================================
+
+/**
+ * Upgrades a modification from legacy (v1) to schema v2.
+ * v2 introduces nested structure:
+ *  - inputs: primary user inputs (concentration, ratios, ΔΔG, etc.)
+ *  - derived: cached computed values (k1Eff, bEff, etc.)
+ *  - workflow: fit/titration history and metadata
+ */
+export function upgradeLegacyModifications(mods) {
+  if (!Array.isArray(mods)) return [];
+
+  return mods.map((mod) => {
+    // Already v2
+    if (mod.schemaVersion === 2) return mod;
+
+    // Migrate v1 → v2
+    const upgraded = {
+      schemaVersion: 2,
+      id: mod.id || `mod-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      label: mod.label || 'Untitled modification',
+
+      inputs: {
+        // Ratio inputs (existing)
+        r_assoc: mod.rAssoc ?? 1,
+        r_poly: mod.rPoly ?? 1,
+        r_nick: mod.rNick ?? 1,
+
+        // ΔΔG inputs
+        deltaDeltaGAssoc: mod.deltaDeltaGAssoc ?? null,
+        deltaDeltaGFold: mod.deltaDeltaGFold ?? null,
+
+        // Temperature
+        temperatureC: mod.temperatureC ?? 37,
+
+        // Hairpin
+        useHairpin: mod.useHairpin ?? false,
+
+        // Association lock (which field drives conversion)
+        assocLock: mod.assocSource || (typeof mod.deltaDeltaGAssoc === 'number' ? 'delta' : 'r'),
+
+        // Concentration inputs (not available in v1, will be added in Simple Mode UI)
+        Nb_nM: mod.Nb_nM ?? null,
+        ETSSB_nM: mod.ETSSB_nM ?? null,
+
+        // Metadata
+        aminoAcid: mod.aminoAcid ?? null,
+        linker: mod.linker ?? null,
+      },
+
+      // Derived cache (will be populated by ensureDerivedCache)
+      derived: mod.derived ?? null,
+
+      // Workflow state
+      workflow: {
+        fitHistory: mod.fitHistory ?? [],
+        titrationHistory: mod.titrationHistory ?? [],
+        lastModified: mod.lastModified ?? Date.now(),
+      },
+
+      notes: mod.notes ?? '',
+    };
+
+    return upgraded;
+  });
+}
+
+/**
+ * Ensures derived values are cached on a modification.
+ * Returns the modification with derived cache populated.
+ */
+export function ensureDerivedCache(mod, baseParams) {
+  if (!mod) return null;
+
+  // If already cached and recent, return as-is
+  if (mod.derived && mod.workflow?.lastModified) {
+    return mod;
+  }
+
+  // Compute derived values
+  const derived = computeEffectiveParameters(baseParams, mod);
+
+  return {
+    ...mod,
+    derived,
+    workflow: {
+      ...mod.workflow,
+      lastModified: Date.now(),
+    },
+  };
+}
+
+// ========================================
+// Preferences Storage
+// ========================================
+
+/**
+ * Load user preferences (mode, lastStep)
+ */
+export function loadPreferences() {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return { mode: 'simple', lastStep: 1 };
+  }
+
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY_PREFS);
+    if (!raw) return { mode: 'simple', lastStep: 1 };
+
+    const parsed = JSON.parse(raw);
+    return {
+      mode: parsed.mode === 'detail' ? 'detail' : 'simple',
+      lastStep: Number.isInteger(parsed.lastStep) && parsed.lastStep >= 1 && parsed.lastStep <= 4
+        ? parsed.lastStep
+        : 1,
+    };
+  } catch (err) {
+    console.warn('[modifications] failed to parse preferences', err);
+    return { mode: 'simple', lastStep: 1 };
+  }
+}
+
+/**
+ * Save user preferences
+ */
+export function savePreferences(prefs) {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+
+  const validated = {
+    mode: prefs.mode === 'detail' ? 'detail' : 'simple',
+    lastStep: Number.isInteger(prefs.lastStep) && prefs.lastStep >= 1 && prefs.lastStep <= 4
+      ? prefs.lastStep
+      : 1,
+  };
+
+  window.localStorage.setItem(STORAGE_KEY_PREFS, JSON.stringify(validated));
+}
+
+// ========================================
+// Helper Accessors (for schema v2)
+// ========================================
+
+/**
+ * Get association inputs from a modification
+ */
+export function getAssocInputs(mod) {
+  if (!mod) return { r_assoc: 1, deltaDeltaGAssoc: null, lock: 'r' };
+
+  if (mod.schemaVersion === 2) {
+    return {
+      r_assoc: mod.inputs?.r_assoc ?? 1,
+      deltaDeltaGAssoc: mod.inputs?.deltaDeltaGAssoc ?? null,
+      lock: mod.inputs?.assocLock ?? 'r',
+    };
+  }
+
+  // Legacy fallback
+  return {
+    r_assoc: mod.rAssoc ?? 1,
+    deltaDeltaGAssoc: mod.deltaDeltaGAssoc ?? null,
+    lock: mod.assocSource ?? 'r',
+  };
+}
+
+/**
+ * Get enzyme ratio inputs from a modification
+ */
+export function getEnzymeInputs(mod) {
+  if (!mod) return { r_poly: 1, r_nick: 1 };
+
+  if (mod.schemaVersion === 2) {
+    return {
+      r_poly: mod.inputs?.r_poly ?? 1,
+      r_nick: mod.inputs?.r_nick ?? 1,
+    };
+  }
+
+  // Legacy fallback
+  return {
+    r_poly: mod.rPoly ?? 1,
+    r_nick: mod.rNick ?? 1,
+  };
+}
+
+/**
+ * Get concentration inputs from a modification
+ */
+export function getConcentrationInputs(mod) {
+  if (!mod) return { Nb_nM: null, ETSSB_nM: null };
+
+  if (mod.schemaVersion === 2) {
+    return {
+      Nb_nM: mod.inputs?.Nb_nM ?? null,
+      ETSSB_nM: mod.inputs?.ETSSB_nM ?? null,
+    };
+  }
+
+  // Legacy has no concentration inputs
+  return { Nb_nM: null, ETSSB_nM: null };
 }
 
 function readLocalMods() {
@@ -34,7 +238,14 @@ function writeLocalMods(mods) {
 }
 
 export function loadModifications() {
-  return readLocalMods();
+  const mods = readLocalMods();
+  // Auto-migrate and save if any modifications were upgraded
+  const upgraded = upgradeLegacyModifications(mods);
+  const needsSave = upgraded.some((m, i) => m.schemaVersion === 2 && mods[i]?.schemaVersion !== 2);
+  if (needsSave) {
+    writeLocalMods(upgraded);
+  }
+  return upgraded;
 }
 
 export function saveModifications(mods) {
@@ -86,6 +297,22 @@ function temperatureToKelvin(tempC) {
 
 export function resolveRAssoc(mod) {
   if (!mod) return 1;
+
+  // v2 schema
+  if (mod.schemaVersion === 2) {
+    const rAssoc = mod.inputs?.r_assoc;
+    const deltaDeltaGAssoc = mod.inputs?.deltaDeltaGAssoc;
+    const tempC = mod.inputs?.temperatureC ?? 37;
+
+    if (rAssoc && rAssoc > 0) return rAssoc;
+    if (typeof deltaDeltaGAssoc === 'number') {
+      const T = temperatureToKelvin(tempC);
+      return Math.exp(-deltaDeltaGAssoc / (GAS_CONSTANT_KCAL * T));
+    }
+    return 1;
+  }
+
+  // v1 legacy
   if (mod.rAssoc && mod.rAssoc > 0) return mod.rAssoc;
   if (typeof mod.deltaDeltaGAssoc === 'number') {
     const T = temperatureToKelvin(mod.temperatureC ?? 25);
@@ -96,6 +323,22 @@ export function resolveRAssoc(mod) {
 
 export function resolveDeltaFromRAssoc(mod) {
   if (!mod) return 0;
+
+  // v2 schema
+  if (mod.schemaVersion === 2) {
+    const deltaDeltaGAssoc = mod.inputs?.deltaDeltaGAssoc;
+    const rAssoc = mod.inputs?.r_assoc;
+    const tempC = mod.inputs?.temperatureC ?? 37;
+
+    if (typeof deltaDeltaGAssoc === 'number') return deltaDeltaGAssoc;
+    if (rAssoc && rAssoc > 0) {
+      const T = temperatureToKelvin(tempC);
+      return -Math.log(rAssoc) * GAS_CONSTANT_KCAL * T;
+    }
+    return 0;
+  }
+
+  // v1 legacy
   if (typeof mod.deltaDeltaGAssoc === 'number') return mod.deltaDeltaGAssoc;
   if (mod.rAssoc && mod.rAssoc > 0) {
     const T = temperatureToKelvin(mod.temperatureC ?? 25);
@@ -115,7 +358,20 @@ function computeBaseInvariants(params) {
 }
 
 function computeHairpinFactor(mod) {
-  if (!mod || !mod.useHairpin) return 1;
+  if (!mod) return 1;
+
+  // v2 schema
+  if (mod.schemaVersion === 2) {
+    if (!mod.inputs?.useHairpin) return 1;
+    if (typeof mod.inputs?.deltaDeltaGFold !== 'number') return 1;
+    const T = temperatureToKelvin(mod.inputs?.temperatureC ?? 37);
+    const delta = mod.inputs.deltaDeltaGFold;
+    const denom = Math.exp(delta / (GAS_CONSTANT_KCAL * T));
+    return 1 / (1 + denom);
+  }
+
+  // v1 legacy
+  if (!mod.useHairpin) return 1;
   if (typeof mod.deltaDeltaGFold !== 'number') return 1;
   const T = temperatureToKelvin(mod.temperatureC ?? 25);
   const delta = mod.deltaDeltaGFold;
@@ -125,8 +381,16 @@ function computeHairpinFactor(mod) {
 
 export function computeEffectiveParameters(baseParams, mod) {
   const rAssoc = resolveRAssoc(mod);
-  const rPoly = mod?.rPoly && mod.rPoly > 0 ? mod.rPoly : 1;
-  const rNick = mod?.rNick && mod.rNick > 0 ? mod.rNick : 1;
+
+  // Get rPoly and rNick based on schema version
+  let rPoly, rNick;
+  if (mod?.schemaVersion === 2) {
+    rPoly = mod.inputs?.r_poly && mod.inputs.r_poly > 0 ? mod.inputs.r_poly : 1;
+    rNick = mod.inputs?.r_nick && mod.inputs.r_nick > 0 ? mod.inputs.r_nick : 1;
+  } else {
+    rPoly = mod?.rPoly && mod.rPoly > 0 ? mod.rPoly : 1;
+    rNick = mod?.rNick && mod.rNick > 0 ? mod.rNick : 1;
+  }
 
   const k1Eff = baseParams.k1 * (rAssoc * rPoly / rNick);
   const bEff = baseParams.b * (rAssoc / rNick);

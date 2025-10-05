@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PP-oscillation — Simple Flow</title>
+  <link rel="stylesheet" href="simple.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="simple-header">
+    <div class="simple-header-inner">
+      <div class="simple-branding">PP-oscillation</div>
+
+      <!-- Step indicator -->
+      <nav class="simple-stepper">
+        <a href="#" class="simple-step" data-step="1">
+          <span class="simple-step-number">1</span>
+          <span class="simple-step-label">設計</span>
+        </a>
+        <span class="simple-step-arrow">→</span>
+        <a href="#" class="simple-step" data-step="2">
+          <span class="simple-step-number">2</span>
+          <span class="simple-step-label">即時予測</span>
+        </a>
+        <span class="simple-step-arrow">→</span>
+        <a href="#" class="simple-step" data-step="3">
+          <span class="simple-step-number">3</span>
+          <span class="simple-step-label">同定</span>
+        </a>
+        <span class="simple-step-arrow">→</span>
+        <a href="#" class="simple-step" data-step="4">
+          <span class="simple-step-number">4</span>
+          <span class="simple-step-label">比較</span>
+        </a>
+      </nav>
+
+      <!-- Mode toggle -->
+      <div class="simple-header-actions">
+        <a href="../detail/" class="simple-mode-toggle">Detail (Legacy)</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="simple-main">
+    <div id="stepContainer" class="simple-step-content">
+      <!-- Step content will be injected here -->
+    </div>
+  </main>
+
+  <!-- CTA Bar -->
+  <div class="simple-cta-bar">
+    <div class="simple-cta-bar-inner">
+      <button id="btnBack" class="simple-cta-btn simple-cta-btn-secondary">
+        ← 戻る
+      </button>
+      <button id="btnNext" class="simple-cta-btn simple-cta-btn-primary">
+        次へ →
+      </button>
+    </div>
+  </div>
+
+  <script type="module" src="router.js"></script>
+</body>
+</html>
