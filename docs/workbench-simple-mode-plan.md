@@ -13,13 +13,33 @@ This plan translates `docs/new-Implementation-request.md` into actionable work. 
 ## 1. Phased Breakdown
 
 ### Phase A — Specification & Data Model Alignment (1–2 days)
-1. Audit current Workbench state schema (`web/modifications.js`) and identify required fields for:
-   - Mode persistence (`mode: 'simple' | 'detail'`).
-   - Nb / ETSSB concentration inputs (`nbConc`, `nbInputMode`, `ssbConc`, `ssbInputMode`).
-   - Derived caches (`derived.k1Prime`, `derived.betaPrime`, `derived.gPrime`, `derived.fOpen`, `derived.dominance`).
-   - Stepper status (`progress.design`, `progress.predict`, `progress.identify`, `progress.compare`).
-2. Design migration logic for existing cards (default to ratio input, copy legacy derived data if present).
-3. Update documentation (spec + roadmap) with new fields and KaTeX requirement.
+1. **Current schema inventory**
+   - Card fields in use (baseline as of Sept 2025):
+     `id`, `label`, `amino`, `temperatureC`, `deltaDeltaGAssoc`, `rAssoc`, `rPoly`, `rNick`, `deltaDeltaGFold`, `linkerLength`, `linkerPolarity`, `notes`, `useHairpin`, plus fit/titration histories.
+   - Global storage keys: `pp_workbench_modifications_v1`, `pp_workbench_active_mod_v1`, `pp_workbench_overlay_mods_v1`.
+   - UI depends on top-level ratios (`rPoly`, `rNick`) for immediate simulation; helper utilities read only these scalar fields.
+2. **New fields / structures (proposed additions)**
+   - `schemaVersion` (number) per card to manage future migrations (default `1`, bump to `2` once upgraded).
+   - `inputs`:
+     - `assoc`: `{ mode: 'delta' | 'ratio', delta?: number, ratio?: number }` (mirrors 🔒 lock state).
+     - `nb`: `{ mode: 'ratio' | 'concentration', ratio?: number, concentration?: { value: number, unit: 'u_per_ml' }, hillExponent?: number }`.
+     - `ssb`: `{ mode: 'ratio' | 'concentration', ratio?: number, concentration?: { value: number, unit: 'ug_per_ml' }, hairpin?: { enabled: boolean, deltaGFold?: number } }`.
+   - `derived`: `{ k1Prime, bPrime, gPrime, gPrimeFold, betaPrime, dominance, updatedAt }` (cached and reused across modes).
+   - `workflow`: `{ design: 'incomplete'|'in_progress'|'done', predict: ..., identify: ..., compare: ... }`.
+3. **Mode preference storage**
+   - Introduce `pp_workbench_prefs_v1` with shape `{ mode: 'simple'|'detail', lastVisitedStep?: 'design'|'predict'|'identify'|'compare' }`.
+   - Fallback to `simple` when key missing or invalid.
+4. **Migration strategy**
+   - Continue reading `pp_workbench_modifications_v1` but, on load, map legacy cards to the expanded structure:
+     - Set `schemaVersion = 2`.
+     - Populate `inputs.assoc` from whichever of `rAssoc` / `deltaDeltaGAssoc` was primary (existing lock state via heuristics: prefer ΔΔG when defined, else ratio).
+     - Populate `inputs.nb.mode = 'ratio'` with value from `rNick`; set concentration fields to `null`.
+     - Populate `inputs.ssb.mode = 'ratio'` with `rPoly`; carry over `deltaDeltaGFold` into `inputs.ssb.hairpin` for convenience.
+     - Initialise `derived` block by recomputing via `computeEffectiveParameters`.
+     - Initialise `workflow` to `{ design: 'in_progress', predict: 'incomplete', identify: 'incomplete', compare: 'incomplete' }` and mark steps as `done` when historical fit/titration data exists.
+   - Persist upgraded cards back to localStorage once migration completes to keep runtime fast.
+5. **Documentation sync**
+   - Update specification, roadmap, and tests docs (already noted) with explicit schema tables once implementation nears.
 
 ### Phase B — Simple Mode Shell & Navigation (2–3 days)
 1. Implement `mode=simple|detail` routing in `workbench/index.html` with header toggle and localStorage persistence.
@@ -73,4 +93,3 @@ This plan translates `docs/new-Implementation-request.md` into actionable work. 
 - [ ] QA notes and regression harness adjustments (if feasible).
 
 Review and adjust timeline once implementation begins; sync `docs/modification-workbench-development-plan.md` after each phase completes.
-
