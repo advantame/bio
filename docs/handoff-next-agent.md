@@ -11,6 +11,7 @@
 ✅ **Phase 1** — Routing & Shell
 ✅ **Phase 2** — Step ① 設計 (Card Editor)
 ✅ **Phase 3** — Step ② 即時予測 (Time Series Visualization)
+✅ **Phase 4** — Step ③ 同定 (Fit & Titration)
 ✅ **Phase 6** — Detail (Legacy) View
 
 ### 実装済みファイル構成
@@ -29,7 +30,8 @@
   │       ├── step1.css        (✅ COMPLETE)
   │       ├── step2.js         (✅ COMPLETE - time series visualization)
   │       ├── step2.css        (✅ COMPLETE)
-  │       ├── step3.js         (placeholder)
+  │       ├── step3.js         (✅ COMPLETE - fit & titration)
+  │       ├── step3.css        (✅ COMPLETE)
   │       └── step4.js         (placeholder)
   └── detail/
       ├── index.html           (legacy Workbench with banner)
@@ -39,27 +41,6 @@
 ```
 
 ## 次のタスク（優先順位順）
-
-### Phase 4 — Step ③ 同定
-
-**目標:** Fit/Titration ワークフローの簡素化版
-
-**実装内容:**
-1. ドラッグ&ドロップ CSV インポート
-2. 最小限のオプション（デフォルトで十分動作）
-3. 詳細設定は展開可能
-4. 滴定ヘルパー（GN binding）
-5. 結果を active card に反映
-6. Detail view へのリンク（詳細調整用）
-
-**参考ファイル:**
-- `/web/detail/fit/importer.js`
-- `/web/detail/fit/prey_fit.js`
-- `/web/detail/fit/titration.js`
-
-**出力ファイル:**
-- `/web/simple/steps/step3.js`
-- `/web/simple/steps/step3.css`
 
 ### Phase 5 — Step ④ 比較
 
@@ -229,11 +210,11 @@ git commit -m "Implement Phase N (...)"
 
 ## 次のエージェントへ
 
-Phase 4（Step ③ 同定）から始めてください。`/web/detail/fit/` の既存ロジックを参考に、Fit/Titration ワークフローの簡素化版を Step 3 に組み込んでください。
+Phase 5（Step ④ 比較）から始めてください。`/web/bifurcation/` と `/web/heatmap/` の既存ロジックを参考に、分岐図・ヒートマップのタブビューを Step 4 に組み込んでください。
 
 ---
 
 **作成日:** 2025-10-05
 **更新日:** 2025-10-05
 **作成者:** Claude Code Agent
-**状態:** Phase 0, 1, 2, 3, 6 完了 / Phase 4-5, 7-8 未実装
+**状態:** Phase 0, 1, 2, 3, 4, 6 完了 / Phase 5, 7-8 未実装
