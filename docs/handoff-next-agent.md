@@ -10,6 +10,7 @@
 ✅ **Phase 0** — Schema & Preferences Migration
 ✅ **Phase 1** — Routing & Shell
 ✅ **Phase 2** — Step ① 設計 (Card Editor)
+✅ **Phase 3** — Step ② 即時予測 (Time Series Visualization)
 ✅ **Phase 6** — Detail (Legacy) View
 
 ### 実装済みファイル構成
@@ -26,7 +27,8 @@
   │   └── steps/
   │       ├── step1.js         (✅ COMPLETE - card editor)
   │       ├── step1.css        (✅ COMPLETE)
-  │       ├── step2.js         (placeholder)
+  │       ├── step2.js         (✅ COMPLETE - time series visualization)
+  │       ├── step2.css        (✅ COMPLETE)
   │       ├── step3.js         (placeholder)
   │       └── step4.js         (placeholder)
   └── detail/
@@ -37,25 +39,6 @@
 ```
 
 ## 次のタスク（優先順位順）
-
-### Phase 3 — Step ② 即時予測
-
-**目標:** Simulator の時系列エンジンを Step 2 に組み込む
-
-**実装内容:**
-1. `/web/simulator/` の描画ロジックを再利用
-2. 左パネル: 派生メトリクス（baseline vs active、Δ% badges）
-3. 右パネル: オーバーレイマネージャー、Step 4 への CTA
-4. WASM 実行中のローディング表示
-5. Step 1 の入力変更時に即座に更新
-
-**参考ファイル:**
-- `/web/simulator/simulator.js` (既存の時系列描画)
-- `/web/core.js` (`runSimulationPhysical` wrapper)
-
-**出力ファイル:**
-- `/web/simple/steps/step2.js`
-- `/web/simple/steps/step2.css`
 
 ### Phase 4 — Step ③ 同定
 
@@ -246,10 +229,11 @@ git commit -m "Implement Phase N (...)"
 
 ## 次のエージェントへ
 
-Phase 3（Step ② 即時予測）から始めてください。`/web/simulator/simulator.js` の描画ロジックを参考に、Step 2 に時系列可視化を組み込んでください。
+Phase 4（Step ③ 同定）から始めてください。`/web/detail/fit/` の既存ロジックを参考に、Fit/Titration ワークフローの簡素化版を Step 3 に組み込んでください。
 
 ---
 
 **作成日:** 2025-10-05
+**更新日:** 2025-10-05
 **作成者:** Claude Code Agent
-**状態:** Phase 0, 1, 2, 6 完了 / Phase 3-5, 7-8 未実装
+**状態:** Phase 0, 1, 2, 3, 6 完了 / Phase 4-5, 7-8 未実装
