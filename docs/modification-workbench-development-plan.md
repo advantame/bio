@@ -5,9 +5,17 @@ _Last updated: 2025-10-05 (simple-flow architecture reset)_
 This plan expands the roadmap into actionable tasks with checkpoints, owners (default: current agent), and acceptance criteria. The intent is to keep development unblocked even if the Codex session resets.
 
 ## 0. Snapshot
-- **Repo state**: `main` @ `Revert "Implement workbench migration and Simple Mode shell"`.
-- **Delivered (historical)**: modification card storage, simulator & sweep overlays, heatmap variant selector, prey-only CSV ingestion + fitting with Workbench integration, ratio validation/locks, hairpin feedback, Workbench → sweep深リンク、ドキュメント刷新。
-- **Outstanding (new scope)**: Simple Flow routing/shell、Steps ①–④再構築、Detail(legacy)同期、KaTeX解説、回帰ハーネスfetch shim。
+- **Repo state**: `main` @ `f93e591` — "Add KaTeX math explanations and Japanese UI localization"
+- **Delivered**:
+  - ✅ modification card storage (v2 schema with migration)
+  - ✅ Simple Flow 4-step workflow (Phase 0-7 complete)
+  - ✅ KaTeX integration with Japanese mathematical explanations
+  - ✅ Full Japanese UI localization
+  - ✅ Detail (legacy) view with v1↔v2 compatibility
+  - ✅ simulator & sweep overlays, heatmap variant selector
+  - ✅ prey-only CSV ingestion + fitting with Workbench integration
+  - ✅ ratio validation/locks, hairpin feedback
+- **Outstanding**: Phase 8 (QA & Documentation) — regression test fetch shim, manual QA matrix, final docs update。
 
 ## 1. Milestone Breakdown
 
@@ -48,11 +56,11 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 | **D1. Schema & prefs** ✅ | Complete Phase 0 of the simple-flow plan (schemaVersion=2, nested inputs, workflow state, prefs key). | **Done** — modifications.js updated with v2 schema, migration, and preferences storage. |
 | **D2. Routing & shell** ✅ | Implement Phase 1 ( `/simple/:step`, redirects, shared header/stepper, Next/Back CTA、legacy URL互換）。| **Done** — /web/simple/ created with router, steps 1-4 placeholders, /detail stub, root redirect. |
 | **D3. Step ① 設計** ✅ | Build Step 1 per Phase 2 (presets、濃度↔比トグル、派生サマリー、完了条件)。| **Done** — Card editor with concentration↔ratio toggles, presets (SI/Nb/ETSSB), derived display, validation, auto-save. |
-| **D4. Step ② 即時予測** | Embed time-series engine + derived/overlay panels (Phase 3)。| Pending |
-| **D5. Step ③ 同定** | Fit/滴定の簡素化とカード反映 (Phase 4)。| Pending |
-| **D6. Step ④ 比較** | 分岐図・ヒートマップタブ埋め込み、オーバーレイ表、出力 (Phase 5)。| Pending |
+| **D4. Step ② 即時予測** ✅ | Embed time-series engine + derived/overlay panels (Phase 3)。| **Done** — Time series visualization with simulator engine, overlay manager, derived metrics panel. |
+| **D5. Step ③ 同定** ✅ | Fit/滴定の簡素化とカード反映 (Phase 4)。| **Done** — CSV drag & drop, prey fit, titration, auto-apply to active card. |
+| **D6. Step ④ 比較** ✅ | 分岐図・ヒートマップタブ埋め込み、オーバーレイ表、出力 (Phase 5)。| **Done** — Bifurcation/heatmap tabs, overlay table, export placeholders. |
 | **D7. Detail(legacy) parity** ✅ | Compact stepper、入力同期、切替 (Phase 6)。| **Done** — /web/detail/ created with legacy Workbench UI, v1↔v2 schema compatibility layer, mode banner. |
-| **D8. KaTeX & docs** | CDN読み込み＋解説パネル、仕様更新、回帰テスト強化 (Phases 7–8)。| Pending |
+| **D8. KaTeX & docs** ✅ | CDN読み込み＋解説パネル、仕様更新、回帰テスト強化 (Phases 7–8)。| **Done (Phase 7)** — KaTeX CDN, mathExplainer.js, Japanese explanations for all steps, UI localization. Phase 8 (QA) pending. |
 
 ## 2. Testing Matrix
 - **Unit:** importer, fitter, binding curve utilities, invariant math.

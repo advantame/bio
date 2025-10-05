@@ -76,9 +76,9 @@ This plan operationalises `docs/new-Implementation-request.md` after the October
 - [x] Schema migration and helpers (Phase 0).
 - [x] Routing + header shell with redirects (Phase 1).
 - [x] Step ① 設計 implemented (Phase 2).
-- [ ] Steps ②–④ implemented and wired (Phases 3–5).
+- [x] Steps ②–④ implemented and wired (Phases 3–5).
 - [x] Detail (legacy) parity adjustments (Phase 6).
-- [ ] KaTeX math explainer with fallback (Phase 7).
+- [x] KaTeX math explainer with Japanese UI (Phase 7).
 - [ ] QA + documentation updates (Phase 8).
 
 Follow the phases sequentially; if scope changes again, update this document and AGENTS.md immediately.
