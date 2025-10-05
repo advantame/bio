@@ -25,8 +25,8 @@ const STEPS = {
   },
 };
 
-// Current state
-let currentStep = 1;
+// Current state (0 means not initialized)
+let currentStep = 0;
 
 // DOM elements (will be initialized in init())
 let stepContainer;
@@ -39,15 +39,15 @@ let stepLinks;
  */
 function parseURL() {
   const hash = window.location.hash.slice(1); // Remove #
-  const parts = hash.split('/');
+  const parts = hash.split('/').filter(p => p); // Remove empty strings
 
-  // Expected format: #/simple/1 or just #1
+  // Expected format: #/simple/1 → ['simple', '1']
   if (parts.length >= 2 && parts[0] === 'simple') {
     const step = parseInt(parts[1], 10);
     return step >= 1 && step <= 4 ? step : 1;
   }
 
-  // Fallback: try to parse just the number
+  // Fallback: try to parse just the number (e.g., #1 → ['1'])
   const step = parseInt(parts[0], 10);
   return step >= 1 && step <= 4 ? step : 1;
 }
@@ -66,6 +66,8 @@ function updateURL(step) {
  * Update the stepper UI
  */
 function updateStepper() {
+  if (!stepLinks || stepLinks.length === 0) return;
+
   stepLinks.forEach((link) => {
     const linkStep = parseInt(link.dataset.step, 10);
     if (linkStep === currentStep) {
@@ -142,13 +144,12 @@ async function renderStep() {
 }
 
 /**
- * Navigate to a specific step
+ * Navigate to a specific step (internal use only - updates without changing URL)
  */
 async function navigateToStep(step) {
   if (step < 1 || step > 4) return;
 
   currentStep = step;
-  updateURL(step);
   updateStepper();
   updateCTAButtons();
   await renderStep();
@@ -176,35 +177,20 @@ function init() {
     return;
   }
 
-  // Parse URL or load from preferences
-  const urlStep = parseURL();
-  const prefs = loadPreferences();
-
-  // URL takes precedence, otherwise use last saved step
-  currentStep = urlStep || prefs.lastStep || 1;
-
-  // Set up event listeners
-  stepLinks.forEach((link) => {
-    link.addEventListener('click', (e) => {
-      e.preventDefault();
-      const step = parseInt(link.dataset.step, 10);
-      navigateToStep(step);
-    });
-  });
-
+  // Set up event listeners for CTA buttons
   btnBack.addEventListener('click', () => {
     if (currentStep > 1) {
-      navigateToStep(currentStep - 1);
+      window.location.hash = `#/simple/${currentStep - 1}`;
     }
   });
 
   btnNext.addEventListener('click', () => {
     if (currentStep < 4) {
-      navigateToStep(currentStep + 1);
+      window.location.hash = `#/simple/${currentStep + 1}`;
     }
   });
 
-  // Handle browser back/forward
+  // Handle hash changes (browser back/forward, stepper clicks, in-page links)
   window.addEventListener('hashchange', () => {
     const newStep = parseURL();
     if (newStep !== currentStep) {
@@ -212,8 +198,31 @@ function init() {
     }
   });
 
-  // Initial render
-  navigateToStep(currentStep);
+  // Parse URL or load from preferences
+  const urlStep = parseURL();
+  const prefs = loadPreferences();
+
+  // Determine initial step
+  let initialStep = 1;
+  if (window.location.hash && urlStep) {
+    // URL has a hash, use it
+    initialStep = urlStep;
+  } else if (prefs.lastStep) {
+    // No hash, but we have a saved preference
+    initialStep = prefs.lastStep;
+  }
+
+  // Set URL if not already set
+  const needsURLUpdate = !window.location.hash || parseURL() !== initialStep;
+  if (needsURLUpdate) {
+    // Setting hash will trigger hashchange event
+    // currentStep is 0, so hashchange handler will always trigger navigation
+    window.location.hash = `#/simple/${initialStep}`;
+  } else {
+    // URL already correct, just render
+    currentStep = initialStep;
+    navigateToStep(currentStep);
+  }
 }
 
 // Start the router when DOM is ready
