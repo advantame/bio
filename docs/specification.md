@@ -98,6 +98,13 @@ A Rust + WebAssembly + Canvas web application for exploring a DNA-based predator
 #### Titration Section
 - Imports ligand-response CSV to fit `K_a` and derive `r_assoc` via `deriveRAssoc` (temperature-adjusted). Updates card with history entry.
 
+#### Simple Mode (in development)
+- A guided four-step flow (設計 → 予測 → 同定 → 比較) will wrap the existing capabilities.
+- Simple Mode and Detail Mode share a unified store; mode toggled via header control or `mode=simple|detail` query parameter with persistence in localStorage.
+- Nb / ETSSB inputs support concentration↔比率 toggles, with conversions applied automatically and validation aligned to the implementation request.
+- Explanatory formulas (k₁′, b′, g′, β′, ΔΔG↔r, Nb/ETSSB transforms) render via KaTeX loaded from CDN for clarity; fallback shows plain code when CDN unavailable.
+- Deep links to Simulator/Bifurcation/Heatmap carry a version flag (`wbv=2`) to keep overlays synchronised.
+
 ### 5.5 Data Persistence
 - LocalStorage keys:
   - `pp_workbench_modifications_v1`: array of modification cards.
@@ -130,6 +137,7 @@ A Rust + WebAssembly + Canvas web application for exploring a DNA-based predator
 - Future work: extend tests with invariant checks (k₁′/b′/r ratios) and preset qualitative assertions.
 
 ## 10. Roadmap Snapshot
+- Launch Simple Mode and KaTeX-backed explanations (ref. `docs/workbench-simple-mode-plan.md`).
 - Complete Library export/reporting (CSV/PDF) and named overlay sets.
 - Harden regression harness (resolve Node fetch issue, add invariants).
 - Continue documentation sync (user-facing help, examples) as features evolve.
@@ -145,4 +153,6 @@ A Rust + WebAssembly + Canvas web application for exploring a DNA-based predator
 - `docs/modification-workbench-development-plan.md`: granular plan & checkpoint tracking.
 - `docs/modification-workbench-roadmap.md`: prioritized backlog.
 - `docs/tests.md`: current testing status and tooling notes.
-- `docs/plan.md`: original high-level design (pre-physical parameterization).
+- `docs/archive/plan.md`: original high-level design (pre-physical parameterization, kept for historical context).
+- `docs/new-Implementation-request.md`: latest Workbench overhaul requirements.
+- `docs/workbench-simple-mode-plan.md`: execution plan aligned to the implementation request.

@@ -23,7 +23,9 @@ A Rust + WebAssembly + Canvas web app to explore a DNA-based predator–prey osc
   - `heatmap/` — 2D parameter heatmap (amplitude or period)
     - `index.html`, `heatmap.js`
   - `workbench/` — Modification Workbench UI (design, overlays, state management)
-- `docs/plan.md` — Initial roadmap/design doc
+- `docs/archive/plan.md` — Initial roadmap/design doc (archived for historical reference)
+- `docs/new-Implementation-request.md` — Workbench overhaul requirements (Simple Mode, guided flow, KaTeX)
+- `docs/workbench-simple-mode-plan.md` — Implementation plan derived from the new request
 - `.gitignore` — ignores build artifacts (`crate/target/`, `web/pkg/`)
 - `netlify.toml`, `netlify-build.sh` — build config (wasm-pack) for deployment
 

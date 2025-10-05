@@ -42,6 +42,16 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 | **C4. Docs refresh** ✅ | `AGENTS.md`, roadmap, user help. |
 | C5. Regression tests | Scripted checks for oscillation-on-start, preset outputs, invariant math. _Status:_ Node harness (`tests/regression.js`) covers oscillation baseline, bifurcation timing, heatmap timing; currently fails in CI due to missing `fetch` shim—triage pending. |
 
+### Milestone D — Simple Mode & Mode Synchronisation
+| Task | Details |
+| --- | --- |
+| **D1. Schema migration** | Extend modification cards with mode, concentration inputs, derived caches, stepper progress. Implement localStorage migration and idempotent defaults. Refer to `docs/workbench-simple-mode-plan.md` Phase A. |
+| **D2. Simple Mode shell** | Build guided layout, mode toggle routing (`mode=simple|detail`), stepper component, and deep-link versioning (`wbv=2`). |
+| **D3. Step implementations** | Deliver Steps ①–④ per implementation request: presets, derived metrics, streamlined fit, comparison table, quick deep links. Ensure dominance classification and Δ displays. |
+| **D4. Detail Mode parity** | Add memo block, compact stepper, and ratio↔濃度 toggles for Nb/ETSSB while sharing the unified store. |
+| **D5. KaTeX integration & docs** | Load KaTeX from CDN in Workbench, render math explanations, update documentation/test notes accordingly. |
+| D6. QA & regression | Execute manual matrix, extend regression harness when fetch shim lands, capture release notes. |
+
 ## 2. Testing Matrix
 - **Unit:** importer, fitter, binding curve utilities, invariant math.
 - **Integration:** Fit UI flows, card sync → overlays, Library actions, preset toggles.
@@ -66,5 +76,6 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 - [x] Add Fit logging/export (JSON/CSV hooks).
 - [x] Define data structures for Library filters.
 - [ ] Enumerate regression scenarios and capture baselines (blocked on Node `fetch` shim).
+- [ ] Deliver Milestone D (Simple Mode + KaTeX) per new implementation request.
 
 Keep this plan synced with `docs/modification-workbench-development-plan.md`. Update checkboxes and milestones as work progresses.

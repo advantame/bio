@@ -7,6 +7,9 @@ This note captures the immediate follow-on work agreed after integrating the mod
 - Current defaults remain the SI Table S5 values (spec §5.2, §14) and the “Birth of oscillations (G sweep)” preset (§5.3) for continuity.
 
 ## Priority Work Queue (in order)
+0. **Launch Simple Mode & mode synchronisation** (implementation request §1–§4, §6).
+   - Deliver guided flow (Steps ①–④), shared store, KaTeX explanations, and concentration↔比率 toggles. _Plan:_ `docs/workbench-simple-mode-plan.md`.
+   - Update deep links to `wbv=2` and ensure Detail Mode parity.
 1. **Finalize the Fit section** (spec §5.4, §8.1–8.3).
    - ✅ CSV import pipeline: `time, F_green[, F_yellow]` with cross-talk correction and baseline removal (§7.1).
    - ✅ Prey-only estimator with optional Huber loss, covariance → CI, and factor reconciliation applied to the active card.
@@ -15,12 +18,12 @@ This note captures the immediate follow-on work agreed after integrating the mod
 2. **Implement the Library section** (spec §5.5).
    - Persist/compare modification cards with physicochemical filters (charge, aromaticity, linker length). _Status:_ heuristics + charge filter shipped.
    - Provide comparison launchers that open bifurcation/heatmap overlays with selected cards. _Status:_ “Open Bifurcation / Open Heatmap” buttons now deep-link presets with active/overlay selections.
-   - Export reports (CSV + PDF) containing fit summaries and derived parameters. _Status:_ TODO (CSV export scoped for next iteration).
+   - Export reports (CSV + PDF) containing fit summaries and derived parameters. _Status:_ TODO (CSV export scoped for next iteration, post Simple Mode).
 3. **Restore and adapt presets with the new parameterization**.
    - ✅ Heatmap: default preset now sweeps `G × ΔΔG_assoc` (converted to `r_assoc`); G×rec amplitude preset retained (§5.3, §13). URL param `preset=assoc_period|rec_amp` supported.
    - ✅ Simulator keeps SI defaults (unchanged `DEFAULTS`).
    - ✅ Bifurcation: retain “Birth of oscillations (G sweep)” using SI defaults upon preset activation (§5.3) and via `preset=G_sweep` deep link.
-   - ✅ Update docs and tooltips to explain the r_assoc / r_poly / r_nick mapping (spec §13, §15).
+   - ✅ Update docs and tooltips to explain the r_assoc / r_poly / r_nick mapping (spec §13, §15). Additional KaTeX-rendered explanations tracked under Priority 0.
 4. **Guarantee “oscillation-at-start” regressions**.
    - ✅ Regression harness (`tests/regression.js`) checks SI baseline oscillation and logs bifurcation/heatmap timings; currently fails in Node sans `fetch` shim (needs follow-up).
    - ◻ Extend harness with invariant math/unit checks (r_assoc / r_poly / r_nick) and preset qualitative assertions (blocked on harness fetch support).

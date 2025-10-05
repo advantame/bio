@@ -28,3 +28,4 @@ On success, JSON summaries are printed for each scenario. On failure (e.g., miss
 
 - Extend the heatmap metric to compute period via peak detection (currently placeholder for perf check).
 - Integrate into automated CI once a headless fetch shim for `core.js` is standardised.
+- Capture Simple Mode stepper regression cases (設計→予測→同定→比較) and KaTeX fallback behaviour once implemented.
