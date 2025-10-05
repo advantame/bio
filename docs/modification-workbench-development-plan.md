@@ -1,13 +1,13 @@
 # Modification Workbench Development Plan
 
-_Last updated: 2025-09-26 (post Workbench ratio UX + deep-link presets)_
+_Last updated: 2025-10-05 (simple-flow architecture reset)_
 
 This plan expands the roadmap into actionable tasks with checkpoints, owners (default: current agent), and acceptance criteria. The intent is to keep development unblocked even if the Codex session resets.
 
 ## 0. Snapshot
-- **Repo state**: `main` @ `Improve workbench UX and deep-link presets` (`990aaf4`).
-- **Delivered**: modification card storage, simulator & sweep overlays, heatmap variant selector, prey-only CSV ingestion + fitting with Workbench integration, ratio validation/locks, hairpin feedback, Workbench → sweep deep links, doc refresh.
-- **Outstanding**: GN titration fit polish, Fit logging/export review (CI wiring), Library report export, regression harness fetch shim.
+- **Repo state**: `main` @ `Revert "Implement workbench migration and Simple Mode shell"`.
+- **Delivered (historical)**: modification card storage, simulator & sweep overlays, heatmap variant selector, prey-only CSV ingestion + fitting with Workbench integration, ratio validation/locks, hairpin feedback, Workbench → sweep深リンク、ドキュメント刷新。
+- **Outstanding (new scope)**: Simple Flow routing/shell、Steps ①–④再構築、Detail(legacy)同期、KaTeX解説、回帰ハーネスfetch shim。
 
 ## 1. Milestone Breakdown
 
@@ -42,15 +42,17 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 | **C4. Docs refresh** ✅ | `AGENTS.md`, roadmap, user help. |
 | C5. Regression tests | Scripted checks for oscillation-on-start, preset outputs, invariant math. _Status:_ Node harness (`tests/regression.js`) covers oscillation baseline, bifurcation timing, heatmap timing; currently fails in CI due to missing `fetch` shim—triage pending. |
 
-### Milestone D — Simple Mode & Mode Synchronisation
+### Milestone D — Simple Flow (Primary App)
 | Task | Details |
 | --- | --- |
-| **D1. Schema migration** | Extend modification cards with mode, concentration inputs, derived caches, stepper progress. Implement localStorage migration and idempotent defaults. Refer to `docs/workbench-simple-mode-plan.md` Phase A. |
-| **D2. Simple Mode shell** | Build guided layout, mode toggle routing (`mode=simple|detail`), stepper component, and deep-link versioning (`wbv=2`). |
-| **D3. Step implementations** | Deliver Steps ①–④ per implementation request: presets, derived metrics, streamlined fit, comparison table, quick deep links. Ensure dominance classification and Δ displays. |
-| **D4. Detail Mode parity** | Add memo block, compact stepper, and ratio↔濃度 toggles for Nb/ETSSB while sharing the unified store. |
-| **D5. KaTeX integration & docs** | Load KaTeX from CDN in Workbench, render math explanations, update documentation/test notes accordingly. |
-| D6. QA & regression | Execute manual matrix, extend regression harness when fetch shim lands, capture release notes. |
+| **D1. Schema & prefs** | Complete Phase 0 of the simple-flow plan (schemaVersion=2, nested inputs, workflow state, prefs key). |
+| **D2. Routing & shell** | Implement Phase 1 ( `/simple/:step`, redirects, shared header/stepper, Next/Back CTA、legacy URL互換）。|
+| **D3. Step ① 設計** | Build Step 1 per Phase 2 (presets、濃度↔比トグル、派生サマリー、完了条件)。|
+| **D4. Step ② 即時予測** | Embed time-series engine + derived/overlay panels (Phase 3)。|
+| **D5. Step ③ 同定** | Fit/滴定の簡素化とカード反映 (Phase 4)。|
+| **D6. Step ④ 比較** | 分岐図・ヒートマップタブ埋め込み、オーバーレイ表、出力 (Phase 5)。|
+| **D7. Detail(legacy) parity** | Compact stepper、入力同期、切替 (Phase 6)。|
+| **D8. KaTeX & docs** | CDN読み込み＋解説パネル、仕様更新、回帰テスト強化 (Phases 7–8)。|
 
 ## 2. Testing Matrix
 - **Unit:** importer, fitter, binding curve utilities, invariant math.
@@ -76,6 +78,6 @@ This plan expands the roadmap into actionable tasks with checkpoints, owners (de
 - [x] Add Fit logging/export (JSON/CSV hooks).
 - [x] Define data structures for Library filters.
 - [ ] Enumerate regression scenarios and capture baselines (blocked on Node `fetch` shim).
-- [ ] Deliver Milestone D (Simple Mode + KaTeX) per new implementation request.
+- [ ] Execute Milestone D Phases 0–8 (see `docs/workbench-simple-mode-plan.md`).
 
 Keep this plan synced with `docs/modification-workbench-development-plan.md`. Update checkboxes and milestones as work progresses.

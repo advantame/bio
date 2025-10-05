@@ -1,24 +1,26 @@
-# Modification Workbench — Next Steps (2025-09-24)
+# Modification Workbench — Next Steps (2025-10-05)
 
 This note captures the immediate follow-on work agreed after integrating the modification engine, Workbench UI, and simulator/bifurcation/heatmap overlays. It distills the remaining specification items so that any agent can resume development even without the interactive context.
 
 ## Guiding References
-- **Specification v1.0** (2025-09-24): sections 5.4 Fit, 5.5 Library, 6 Data Model, 8 Algorithms, 14 Tests, and 13 Compatibility outline the pending capabilities. Line numbers refer to that document.
-- Current defaults remain the SI Table S5 values (spec §5.2, §14) and the “Birth of oscillations (G sweep)” preset (§5.3) for continuity.
+- **Implementation Request (Oct 05)** — `docs/new-Implementation-request.md`
+- **Simple Flow Plan** — `docs/workbench-simple-mode-plan.md`
+- **Specification (to be updated)** — `docs/specification.md` Workbench section
+- Defaults continue to track SI Table S5 values until new presets are defined within the simple flow.
 
 ## Priority Work Queue (in order)
-0. **Launch Simple Mode & mode synchronisation** (implementation request §1–§4, §6).
-   - Deliver guided flow (Steps ①–④), shared store, KaTeX explanations, and concentration↔比率 toggles. _Plan:_ `docs/workbench-simple-mode-plan.md`.
-   - Update deep links to `wbv=2` and ensure Detail Mode parity.
+0. **Launch Simple Flow (primary app)** — Full restructure.
+   - Complete Phases 0–8 in the implementation plan: schema/prefs, routing `/simple/:step`, Steps ①–④, Detail(legacy) parity, KaTeX, QA.
+   - Ensure legacy URLs redirect cleanly with preserved `active/overlays/preset` query parameters.
 1. **Finalize the Fit section** (spec §5.4, §8.1–8.3).
    - ✅ CSV import pipeline: `time, F_green[, F_yellow]` with cross-talk correction and baseline removal (§7.1).
    - ✅ Prey-only estimator with optional Huber loss, covariance → CI, and factor reconciliation applied to the active card.
    - ✅ GN titration helper: fit `K_a^{GN}`, derive `r_assoc`, reconcile `r_nick`, warn on CI conflicts (§8.2, §8.3).
    - ✅ Fit logging/export: persist `FitResult` metadata and offer download hooks (spec §6.1) with consistency badges + failure hints.
-2. **Implement the Library section** (spec §5.5).
+2. **Library reporting (post simple-flow)** — spec §5.5.
    - Persist/compare modification cards with physicochemical filters (charge, aromaticity, linker length). _Status:_ heuristics + charge filter shipped.
-   - Provide comparison launchers that open bifurcation/heatmap overlays with selected cards. _Status:_ “Open Bifurcation / Open Heatmap” buttons now deep-link presets with active/overlay selections.
-   - Export reports (CSV + PDF) containing fit summaries and derived parameters. _Status:_ TODO (CSV export scoped for next iteration, post Simple Mode).
+   - Provide comparison launchers that open bifurcation/heatmap overlays with selected cards. _Status:_ quick-launch buttons done; revisit once Step④ stabilises.
+   - Export reports (CSV + PDF) containing fit summaries and derived parameters. _Status:_ TODO after simple flow GA.
 3. **Restore and adapt presets with the new parameterization**.
    - ✅ Heatmap: default preset now sweeps `G × ΔΔG_assoc` (converted to `r_assoc`); G×rec amplitude preset retained (§5.3, §13). URL param `preset=assoc_period|rec_amp` supported.
    - ✅ Simulator keeps SI defaults (unchanged `DEFAULTS`).
