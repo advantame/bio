@@ -12,6 +12,7 @@
 ✅ **Phase 2** — Step ① 設計 (Card Editor)
 ✅ **Phase 3** — Step ② 即時予測 (Time Series Visualization)
 ✅ **Phase 4** — Step ③ 同定 (Fit & Titration)
+✅ **Phase 5** — Step ④ 比較 (Bifurcation & Heatmap)
 ✅ **Phase 6** — Detail (Legacy) View
 
 ### 実装済みファイル構成
@@ -32,7 +33,8 @@
   │       ├── step2.css        (✅ COMPLETE)
   │       ├── step3.js         (✅ COMPLETE - fit & titration)
   │       ├── step3.css        (✅ COMPLETE)
-  │       └── step4.js         (placeholder)
+  │       ├── step4.js         (✅ COMPLETE - bifurcation & heatmap)
+  │       └── step4.css        (✅ COMPLETE)
   └── detail/
       ├── index.html           (legacy Workbench with banner)
       ├── workbench.js         (v1↔v2 compatibility)
@@ -41,25 +43,6 @@
 ```
 
 ## 次のタスク（優先順位順）
-
-### Phase 5 — Step ④ 比較
-
-**目標:** 分岐図・ヒートマップのタブビュー
-
-**実装内容:**
-1. `/web/bifurcation/` と `/web/heatmap/` をタブとして埋め込み
-2. オーバーレイ表（baseline/active/overlays メトリクス）
-3. プリセット選択、軸オーバーライド
-4. CSV/PNG エクスポート（プレースホルダー可）
-5. Step 2 のオーバーレイ選択と同期
-
-**参考ファイル:**
-- `/web/bifurcation/bifurcation.js`
-- `/web/heatmap/heatmap.js`
-
-**出力ファイル:**
-- `/web/simple/steps/step4.js`
-- `/web/simple/steps/step4.css`
 
 ### Phase 7 — KaTeX Integration
 
@@ -210,11 +193,17 @@ git commit -m "Implement Phase N (...)"
 
 ## 次のエージェントへ
 
-Phase 5（Step ④ 比較）から始めてください。`/web/bifurcation/` と `/web/heatmap/` の既存ロジックを参考に、分岐図・ヒートマップのタブビューを Step 4 に組み込んでください。
+**すべての主要フェーズ（Phase 0-6）が完了しました！** 🎉
+
+残りのタスク：
+- Phase 7（KaTeX Integration）— 数式説明パネル（オプション）
+- Phase 8（QA & Documentation）— テスト強化、ドキュメント最終化
+
+Simple Flow の4ステップワークフローは完全に動作します。必要に応じてPhase 7, 8を実装してください。
 
 ---
 
 **作成日:** 2025-10-05
 **更新日:** 2025-10-05
 **作成者:** Claude Code Agent
-**状態:** Phase 0, 1, 2, 3, 4, 6 完了 / Phase 5, 7-8 未実装
+**状態:** Phase 0, 1, 2, 3, 4, 5, 6 完了（コア機能完成）/ Phase 7-8 未実装（拡張・QA）

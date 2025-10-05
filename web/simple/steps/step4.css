@@ -1,0 +1,207 @@
+/* Step 4: 比較 — Styles */
+
+.step4-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.step4-tab {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.15s;
+}
+
+.step4-tab:hover {
+  color: #0f172a;
+}
+
+.step4-tab.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+.step4-content {
+  margin-top: 1.5rem;
+}
+
+.step4-tab-content {
+  display: none;
+}
+
+.step4-tab-content.active {
+  display: block;
+}
+
+/* Controls */
+.step4-controls {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.step4-controls h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.step4-controls h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.875rem;
+  color: #374151;
+  font-weight: 600;
+}
+
+.step4-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.step4-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.step4-form label,
+.step4-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  color: #475569;
+}
+
+.step4-form input,
+.step4-form select,
+.step4-form-grid input,
+.step4-form-grid select {
+  padding: 0.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  background: white;
+}
+
+.step4-form input:focus,
+.step4-form select:focus,
+.step4-form-grid input:focus,
+.step4-form-grid select:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+.step4-btn-primary {
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  border: none;
+  background: #2563eb;
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.step4-btn-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.step4-btn-primary:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.step4-status {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+/* Canvas */
+canvas {
+  width: 100%;
+  height: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background: white;
+}
+
+/* Legend */
+.step4-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+}
+
+.step4-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #475569;
+}
+
+.step4-legend-color {
+  width: 20px;
+  height: 3px;
+  border-radius: 1px;
+}
+
+/* Footer */
+.step4-footer {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+}
+
+.step4-footer h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.step4-overlay-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.step4-overlay-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.step4-link {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.step4-link:hover {
+  text-decoration: underline;
+}
