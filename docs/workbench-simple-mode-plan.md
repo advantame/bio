@@ -87,6 +87,10 @@ This plan translates `docs/new-Implementation-request.md` into actionable work. 
    - `buildInputsFromLegacy` sets default modes (`ratio`) and nests optional concentration placeholders.
    - `recomputeDerived` reuses `computeEffectiveParameters` but preserves top-level ratios for legacy callers until fully refactored.
    - `inferWorkflow` marks `identify` as `done` when `mod.fitHistory?.length` truthy; same for titration vs `compare` step readiness.
+8. **Call-site adjustments (Phase A deliverable)**
+   - Replace direct field access in `renderList`, `populateForm`, `populateDerived`, fit/titration handlers, and overlay exports with helper accessors so both ratios and concentration-driven modes remain consistent.
+   - Ensure `updateMod` writes back through `upsertModification` with nested merge logic (e.g., when toggling concentration inputs, keep historical fit history and derived cache intact).
+   - Audit `buildSimulationVariants` usage of `mod.rPoly` / `mod.rNick`; decide whether to read from `inputs` or continue relying on migration to keep top-level fields synced (the latter simplifies Phase A as long as normalization updates them).
 
 ### Phase B — Simple Mode Shell & Navigation (2–3 days)
 1. Implement `mode=simple|detail` routing in `workbench/index.html` with header toggle and localStorage persistence.
