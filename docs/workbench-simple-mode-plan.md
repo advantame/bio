@@ -38,7 +38,18 @@ This plan translates `docs/new-Implementation-request.md` into actionable work. 
      - Initialise `derived` block by recomputing via `computeEffectiveParameters`.
      - Initialise `workflow` to `{ design: 'in_progress', predict: 'incomplete', identify: 'incomplete', compare: 'incomplete' }` and mark steps as `done` when historical fit/titration data exists.
    - Persist upgraded cards back to localStorage once migration completes to keep runtime fast.
-5. **Documentation sync**
+5. **Code touchpoints & helpers**
+   - `web/modifications.js`
+     - Add `loadWorkbenchPrefs` / `saveWorkbenchPrefs` for the new preference key.
+     - Introduce `upgradeLegacyModifications(mods)` that returns `{ mods, changed }`, handles schemaVersion defaults, and normalises ratios (ensuring legacy callers still see `rPoly`, `rNick`, `rAssoc`).
+     - Export convenience getters (`getAssocInputs(mod)`, `getNbInputs(mod)`, `getSsbInputs(mod)`) used by both modes.
+     - Extend `computeEffectiveParameters` to read from `inputs.*` but continue populating top-level `rPoly` / `rNick` during migration for backward compatibility.
+   - `web/workbench/workbench.js`
+     - On bootstrap, call migration helper before rendering; wire new `workflow` state into forthcoming steppers.
+     - Replace direct `mod.rPoly` / `mod.rNick` field reads with helper accessors where validation depends on the configured mode.
+     - Capture derived cache writes (`mod.derived = { ... }`) whenever fit/titration completes or inputs change.
+   - Shared constants: define enumerations for step states and input modes to avoid string drift.
+6. **Documentation sync**
    - Update specification, roadmap, and tests docs (already noted) with explicit schema tables once implementation nears.
 
 ### Phase B — Simple Mode Shell & Navigation (2–3 days)
