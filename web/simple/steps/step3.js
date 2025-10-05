@@ -9,6 +9,8 @@ import {
   upsertModification,
 } from '../../modifications.js';
 
+import { STEP3_EXPLANATION, autoRenderMath } from '../mathExplainer.js';
+
 // Baseline parameters (SI Table S5)
 const BASELINE = {
   pol: 3.7,
@@ -46,8 +48,8 @@ export async function render(container) {
     <div class="step3-layout">
       <!-- Prey Fit Section -->
       <div class="step3-section">
-        <h2>Prey Fit (Time Series)</h2>
-        <p class="step3-help">Upload prey-only fluorescence CSV to estimate k₁′ and b′</p>
+        <h2>Prey フィット（時系列）</h2>
+        <p class="step3-help">prey-only 蛍光 CSV をアップロードして k₁′ と b′ を推定します</p>
 
         <div id="step3PreyDropzone" class="step3-dropzone">
           <div class="step3-dropzone-content">
@@ -56,8 +58,8 @@ export async function render(container) {
               <polyline points="17 8 12 3 7 8"></polyline>
               <line x1="12" y1="3" x2="12" y2="15"></line>
             </svg>
-            <p>Drag & drop CSV file here</p>
-            <p style="font-size: 0.75rem; color: #94a3b8;">or click to browse</p>
+            <p>CSV ファイルをここにドラッグ & ドロップ</p>
+            <p style="font-size: 0.75rem; color: #94a3b8;">またはクリックして選択</p>
           </div>
           <input type="file" id="step3PreyFileInput" accept=".csv" style="display: none;">
         </div>
@@ -66,7 +68,7 @@ export async function render(container) {
 
         <!-- Advanced Options (Collapsible) -->
         <details class="step3-advanced">
-          <summary>Advanced Options</summary>
+          <summary>詳細オプション</summary>
           <div class="step3-form">
             <label>
               Time Unit
@@ -99,8 +101,8 @@ export async function render(container) {
 
       <!-- Titration Section -->
       <div class="step3-section">
-        <h2>Titration (G:N Binding)</h2>
-        <p class="step3-help">Upload titration CSV to estimate Ka (association constant)</p>
+        <h2>滴定（G:N 結合）</h2>
+        <p class="step3-help">滴定 CSV をアップロードして Ka（会合定数）を推定します</p>
 
         <div id="step3TitrationDropzone" class="step3-dropzone">
           <div class="step3-dropzone-content">
@@ -109,8 +111,8 @@ export async function render(container) {
               <polyline points="17 8 12 3 7 8"></polyline>
               <line x1="12" y1="3" x2="12" y2="15"></line>
             </svg>
-            <p>Drag & drop CSV file here</p>
-            <p style="font-size: 0.75rem; color: #94a3b8;">or click to browse</p>
+            <p>CSV ファイルをここにドラッグ & ドロップ</p>
+            <p style="font-size: 0.75rem; color: #94a3b8;">またはクリックして選択</p>
           </div>
           <input type="file" id="step3TitrationFileInput" accept=".csv" style="display: none;">
         </div>
@@ -143,16 +145,27 @@ export async function render(container) {
     <!-- Detail View Link -->
     <div class="step3-footer">
       <p style="color: #64748b; font-size: 0.875rem;">
-        Need more control? Open the
+        より詳細な制御が必要ですか？
         <a href="../detail/#fit" class="step3-link">Detail (Legacy) Fit View</a>
-        for advanced options and diagnostics.
+        で高度なオプションと診断情報にアクセスできます。
       </p>
+    </div>
+
+    <!-- Explanation Section -->
+    <div class="step3-explanation" style="margin-top: 2rem; padding: 1.5rem; background: #f8fafc; border-radius: 0.5rem; border: 1px solid #e2e8f0;">
+      <div id="step3ExplanationContent">${STEP3_EXPLANATION}</div>
     </div>
   `;
 
   // Set up event listeners
   setupPreyFit();
   setupTitration();
+
+  // Render math in explanation
+  setTimeout(() => {
+    const explainer = document.getElementById('step3ExplanationContent');
+    if (explainer) autoRenderMath(explainer);
+  }, 150);
 }
 
 function setupPreyFit() {

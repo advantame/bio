@@ -14,6 +14,8 @@ import {
   GAS_CONSTANT_KCAL,
 } from '../../modifications.js';
 
+import { STEP1_EXPLANATION, autoRenderMath } from '../mathExplainer.js';
+
 // Baseline parameters (SI Table S5)
 const BASELINE = {
   pol: 3.7,
@@ -112,11 +114,11 @@ export async function render(container) {
     <div class="step1-layout">
       <!-- Left: Card List -->
       <div>
-        <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem; color: #374151;">Modification Cards</h3>
+        <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem; color: #374151;">修飾カード一覧</h3>
         <div id="step1CardList" class="step1-card-list"></div>
         <div class="step1-card-actions">
-          <button id="step1NewCard" class="primary">New Card</button>
-          <button id="step1DeleteCard">Delete</button>
+          <button id="step1NewCard" class="primary">新規作成</button>
+          <button id="step1DeleteCard">削除</button>
         </div>
       </div>
 
@@ -156,7 +158,7 @@ function renderCardList() {
   const activeId = getActiveModificationId();
 
   if (mods.length === 0) {
-    listEl.innerHTML = '<p class="step1-note">No modifications yet. Create one to get started.</p>';
+    listEl.innerHTML = '<p class="step1-note">まだ修飾カードがありません。新規作成して始めましょう。</p>';
     return;
   }
 
@@ -194,7 +196,7 @@ function renderEditor() {
   const editorEl = document.getElementById('step1EditorContent');
 
   if (!selectedId) {
-    editorEl.innerHTML = '<p style="color: #94a3b8; text-align: center; padding: 2rem;">Select a card or create a new one</p>';
+    editorEl.innerHTML = '<p style="color: #94a3b8; text-align: center; padding: 2rem;">カードを選択するか、新規作成してください</p>';
     return;
   }
 
@@ -202,7 +204,7 @@ function renderEditor() {
   const mod = mods.find((m) => m.id === selectedId);
 
   if (!mod) {
-    editorEl.innerHTML = '<p style="color: #ef4444; text-align: center; padding: 2rem;">Card not found</p>';
+    editorEl.innerHTML = '<p style="color: #ef4444; text-align: center; padding: 2rem;">カードが見つかりません</p>';
     return;
   }
 
@@ -227,28 +229,28 @@ function renderEditor() {
   editorEl.innerHTML = `
     <!-- Preset Selector -->
     <div class="step1-section">
-      <h3>Presets</h3>
+      <h3>プリセット</h3>
       <div class="step1-preset-selector">
-        <button class="step1-preset-btn" data-preset="si_baseline">SI Baseline</button>
-        <button class="step1-preset-btn" data-preset="nb_titration">Nb Titration</button>
-        <button class="step1-preset-btn" data-preset="etssb_booster">ETSSB Booster</button>
+        <button class="step1-preset-btn" data-preset="si_baseline">SI ベースライン</button>
+        <button class="step1-preset-btn" data-preset="nb_titration">Nb 滴定</button>
+        <button class="step1-preset-btn" data-preset="etssb_booster">ETSSB ブースター</button>
       </div>
     </div>
 
     <!-- Basic Info -->
     <div class="step1-section">
-      <h3>Basic Information</h3>
+      <h3>基本情報</h3>
       <div class="step1-form">
         <label>
-          Label
-          <input type="text" id="step1Label" value="${label}" placeholder="e.g. Lys-Gly linker" required>
+          ラベル
+          <input type="text" id="step1Label" value="${label}" placeholder="例: Lys-Gly リンカー" required>
         </label>
         <label>
-          Amino Acid
-          <input type="text" id="step1Amino" value="${aminoAcid}" placeholder="Lys / Arg / custom">
+          アミノ酸
+          <input type="text" id="step1Amino" value="${aminoAcid}" placeholder="Lys / Arg / カスタム">
         </label>
         <label>
-          Temperature [°C]
+          温度 [°C]
           <input type="number" id="step1Temp" value="${temperatureC}" step="0.1">
         </label>
       </div>
@@ -256,7 +258,7 @@ function renderEditor() {
 
     <!-- Association -->
     <div class="step1-section">
-      <h3>Association</h3>
+      <h3>結合親和性</h3>
       <div class="step1-form">
         <label id="step1DeltaAssocLabel">
           ΔΔG_assoc [kcal/mol]
@@ -277,15 +279,15 @@ function renderEditor() {
 
     <!-- Enzymes with Concentration/Ratio Toggle -->
     <div class="step1-section">
-      <h3>Enzyme Parameters</h3>
+      <h3>酵素パラメータ</h3>
 
       <!-- Nb (Nickase) -->
       <div class="step1-toggle-group">
         <div class="step1-toggle-header">
-          <h4>Nb (Nickase)</h4>
+          <h4>Nb（ニッカーゼ）</h4>
           <label class="step1-toggle-switch">
             <input type="checkbox" id="step1NbToggle" ${useConcentrationMode ? 'checked' : ''}>
-            <span>${useConcentrationMode ? 'Concentration' : 'Ratio'}</span>
+            <span>${useConcentrationMode ? '濃度' : '比率'}</span>
           </label>
         </div>
         <div class="step1-form">
@@ -295,17 +297,17 @@ function renderEditor() {
           </label>
         </div>
         <p class="step1-note">
-          ${useConcentrationMode ? `Ratio: ${rNick.toFixed(2)} (baseline: ${BASELINE_ENZYMES.Nb_nM} nM)` : `Concentration: ${Nb_nM.toFixed(1)} nM`}
+          ${useConcentrationMode ? `比率: ${rNick.toFixed(2)}（ベースライン: ${BASELINE_ENZYMES.Nb_nM} nM）` : `濃度: ${Nb_nM.toFixed(1)} nM`}
         </p>
       </div>
 
       <!-- ETSSB (Polymerase assist) -->
       <div class="step1-toggle-group">
         <div class="step1-toggle-header">
-          <h4>ETSSB (Polymerase assist)</h4>
+          <h4>ETSSB（ポリメラーゼ補助）</h4>
           <label class="step1-toggle-switch">
             <input type="checkbox" id="step1ETSSBToggle" ${useConcentrationMode ? 'checked' : ''}>
-            <span>${useConcentrationMode ? 'Concentration' : 'Ratio'}</span>
+            <span>${useConcentrationMode ? '濃度' : '比率'}</span>
           </label>
         </div>
         <div class="step1-form">
@@ -315,17 +317,17 @@ function renderEditor() {
           </label>
         </div>
         <p class="step1-note">
-          ${useConcentrationMode ? `Ratio: ${rPoly.toFixed(2)} (baseline: ${BASELINE_ENZYMES.ETSSB_nM} nM)` : `Concentration: ${ETSSB_nM.toFixed(1)} nM`}
+          ${useConcentrationMode ? `比率: ${rPoly.toFixed(2)}（ベースライン: ${BASELINE_ENZYMES.ETSSB_nM} nM）` : `濃度: ${ETSSB_nM.toFixed(1)} nM`}
         </p>
       </div>
     </div>
 
     <!-- Hairpin (optional) -->
     <div class="step1-section">
-      <h3>Hairpin Correction (Optional)</h3>
+      <h3>ヘアピン補正（オプション）</h3>
       <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
         <input type="checkbox" id="step1Hairpin" ${useHairpin ? 'checked' : ''}>
-        <label for="step1Hairpin" style="margin: 0; cursor: pointer;">Apply hairpin folding correction</label>
+        <label for="step1Hairpin" style="margin: 0; cursor: pointer;">ヘアピン折りたたみ補正を適用</label>
       </div>
       <div class="step1-form">
         <label>
@@ -338,13 +340,13 @@ function renderEditor() {
 
     <!-- Notes -->
     <div class="step1-section">
-      <h3>Notes</h3>
-      <textarea id="step1Notes" rows="3" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-family: inherit;">${notes}</textarea>
+      <h3>メモ</h3>
+      <textarea id="step1Notes" rows="3" style="width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.375rem; font-family: inherit;" placeholder="自由記述欄">${notes}</textarea>
     </div>
 
     <!-- Derived Parameters -->
     <div class="step1-section">
-      <h3>Derived Parameters</h3>
+      <h3>派生パラメータ</h3>
       <div class="step1-derived-grid">
         <div class="step1-derived-item">
           <h4>k₁′</h4>
@@ -369,7 +371,7 @@ function renderEditor() {
           <p>${derived.betaEff.toFixed(3)}</p>
         </div>
         <div class="step1-derived-item">
-          <h4>Dominance</h4>
+          <h4>支配因子</h4>
           <p>${formatDominanceText(derived.dominance)}</p>
         </div>
       </div>
@@ -381,16 +383,27 @@ function renderEditor() {
     <!-- Actions -->
     <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">
       <button id="step1SetActive" class="step1-preset-btn" style="flex: 1; background: #2563eb; color: white; border-color: #2563eb;">
-        Set as Active
+        アクティブに設定
       </button>
       <button id="step1ResetDefaults" class="step1-preset-btn" style="flex: 1;">
-        Reset to SI Defaults
+        SI デフォルトにリセット
       </button>
+    </div>
+
+    <!-- Explanation Section -->
+    <div class="step1-section step1-explanation" style="margin-top: 2rem; padding: 1.5rem; background: #f8fafc; border-radius: 0.5rem; border: 1px solid #e2e8f0;">
+      <div id="step1ExplanationContent">${STEP1_EXPLANATION}</div>
     </div>
   `;
 
   attachEditorListeners();
   updateValidationStatus();
+
+  // Render math in explanation
+  setTimeout(() => {
+    const explainer = document.getElementById('step1ExplanationContent');
+    if (explainer) autoRenderMath(explainer);
+  }, 150);
 }
 
 function attachEventListeners() {
@@ -591,24 +604,24 @@ function updateValidationStatus() {
   if (isValid && isActive) {
     statusEl.innerHTML = `
       <div class="step1-status success">
-        ✓ Step complete: Card is configured and set as active
+        ✓ ステップ完了：カードが設定され、アクティブになっています
       </div>
     `;
   } else if (isValid && !isActive) {
     statusEl.innerHTML = `
       <div class="step1-status info">
-        ⓘ Card is valid but not active. Click "Set as Active" to use it in simulations.
+        ⓘ カードは有効ですがアクティブではありません。「アクティブに設定」をクリックしてシミュレーションで使用してください。
       </div>
     `;
   } else {
     const issues = [];
-    if (!hasLabel) issues.push('Add a descriptive label');
-    if (!hasAssoc && !hasEnzyme) issues.push('Modify at least one parameter (association or enzyme)');
-    if (!ratiosValid) issues.push('Ratios must be between 0.05 and 20');
+    if (!hasLabel) issues.push('わかりやすいラベルを追加してください');
+    if (!hasAssoc && !hasEnzyme) issues.push('少なくとも1つのパラメータ（結合親和性または酵素）を変更してください');
+    if (!ratiosValid) issues.push('比率は 0.05 から 20 の間である必要があります');
 
     statusEl.innerHTML = `
       <div class="step1-status warning">
-        ⚠ Validation issues: ${issues.join(', ')}
+        ⚠ 検証エラー：${issues.join('、')}
       </div>
     `;
   }

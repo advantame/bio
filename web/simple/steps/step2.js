@@ -10,6 +10,8 @@ import {
   computeEffectiveParameters,
 } from '../../modifications.js';
 
+import { STEP2_EXPLANATION, autoRenderMath } from '../mathExplainer.js';
+
 // Baseline parameters (SI Table S5)
 const BASELINE = {
   pol: 3.7,
@@ -58,7 +60,7 @@ export async function render(container) {
     <div class="step2-layout">
       <!-- Left: Derived Metrics -->
       <div class="step2-left-panel">
-        <h3>Derived Metrics</h3>
+        <h3>派生指標</h3>
         <div id="step2Metrics" class="step2-metrics"></div>
       </div>
 
@@ -71,17 +73,22 @@ export async function render(container) {
 
       <!-- Right: Overlay Manager -->
       <div class="step2-right-panel">
-        <h3>Overlay Manager</h3>
+        <h3>オーバーレイ管理</h3>
         <div id="step2Overlays" class="step2-overlays"></div>
 
         <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
-          <h3>Compare in Detail</h3>
+          <h3>詳細な比較</h3>
           <p style="color: #64748b; font-size: 0.875rem; margin-bottom: 0.75rem;">
-            Use Step ④ for bifurcation diagrams and heatmaps
+            分岐図とヒートマップはStep ④を使用してください
           </p>
-          <a href="#/simple/4" class="step2-cta-btn">Go to Step ④ →</a>
+          <a href="#/simple/4" class="step2-cta-btn">Step ④ へ →</a>
         </div>
       </div>
+    </div>
+
+    <!-- Explanation Section -->
+    <div class="step2-explanation" style="margin-top: 2rem; padding: 1.5rem; background: #f8fafc; border-radius: 0.5rem; border: 1px solid #e2e8f0;">
+      <div id="step2ExplanationContent">${STEP2_EXPLANATION}</div>
     </div>
   `;
 
@@ -101,6 +108,12 @@ export async function render(container) {
   // Start animation loop
   needsUpdate = true;
   animate();
+
+  // Render math in explanation
+  setTimeout(() => {
+    const explainer = document.getElementById('step2ExplanationContent');
+    if (explainer) autoRenderMath(explainer);
+  }, 150);
 }
 
 function handleStorageChange() {

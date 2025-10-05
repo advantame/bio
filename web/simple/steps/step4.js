@@ -9,6 +9,8 @@ import {
   GAS_CONSTANT_KCAL,
 } from '../../modifications.js';
 
+import { STEP4_EXPLANATION, autoRenderMath } from '../mathExplainer.js';
+
 // Baseline parameters (SI Table S5)
 const BASELINE = {
   pol: 3.7,
@@ -172,12 +174,17 @@ export async function render(container) {
 
     <!-- Overlay Summary -->
     <div class="step4-footer">
-      <h3>Active Overlays</h3>
+      <h3>アクティブなオーバーレイ</h3>
       <div id="step4OverlaySummary" class="step4-overlay-summary"></div>
       <p style="color: #64748b; font-size: 0.875rem; margin-top: 1rem;">
-        Manage overlays in <a href="#/simple/2" class="step4-link">Step ②</a> or view details in
-        <a href="../detail/" class="step4-link">Detail View</a>
+        オーバーレイの管理は <a href="#/simple/2" class="step4-link">Step ②</a> で、詳細は
+        <a href="../detail/" class="step4-link">Detail View</a> で確認できます。
       </p>
+    </div>
+
+    <!-- Explanation Section -->
+    <div class="step4-explanation" style="margin-top: 2rem; padding: 1.5rem; background: #f8fafc; border-radius: 0.5rem; border: 1px solid #e2e8f0;">
+      <div id="step4ExplanationContent">${STEP4_EXPLANATION}</div>
     </div>
   `;
 
@@ -195,6 +202,12 @@ export async function render(container) {
   setupBifurcation();
   setupHeatmap();
   renderOverlaySummary();
+
+  // Render math in explanation
+  setTimeout(() => {
+    const explainer = document.getElementById('step4ExplanationContent');
+    if (explainer) autoRenderMath(explainer);
+  }, 150);
 }
 
 function setupTabs() {
