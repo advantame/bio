@@ -11,4 +11,4 @@ Thumbs.db
 *.swo
 .idea/
 .vscode/
-*.Zone.Identifier
+*Zone.Identifier*
