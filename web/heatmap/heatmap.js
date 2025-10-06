@@ -309,6 +309,9 @@ async function runHeatmapParallel(variantMap, variantStyles, previewVariants, bp
           }
         }
 
+        // Update progress counter in real-time
+        completed += results.length;
+
         resolve(results.length);
       };
 
@@ -335,8 +338,7 @@ async function runHeatmapParallel(variantMap, variantStyles, previewVariants, bp
 
   try {
     // Wait for all workers to complete
-    const results = await Promise.all(promises);
-    completed = results.reduce((sum, count) => sum + count, 0);
+    await Promise.all(promises);
     clearInterval(updateInterval);
     status.textContent = `Parallel computation complete (${completed}/${totalCells} cells)`;
   } catch (error) {
