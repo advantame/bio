@@ -435,7 +435,7 @@ function drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, metri
   ctx.strokeStyle = '#e5e7eb';
   ctx.strokeRect(L, T, W - L - R, H - T - B);
 
-  // Legend (right)
+  // Legend (right) - Color bar
   const lgX = W - R + 40, lgY = T + 10, lgW = 16, lgH = H - T - B - 40;
   for (let y=0;y<lgH;y++){
     const t = 1 - y/(lgH-1);
@@ -444,50 +444,96 @@ function drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, metri
     ctx.fillRect(lgX, lgY + y, lgW, 1);
   }
   ctx.strokeStyle = '#334155'; ctx.strokeRect(lgX, lgY, lgW, lgH);
-  ctx.fillStyle = '#0f172a'; ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText(`${metricLabel} max: ${roundSmart(dmax)}`, lgX + lgW + 8, lgY);
+
+  // Color bar value labels - numbers only
+  ctx.fillStyle = '#0f172a';
+  ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText(roundSmart(dmax), lgX + lgW + 6, lgY);
   ctx.textBaseline = 'bottom';
-  ctx.fillText(`${metricLabel} min: ${roundSmart(dmin)}`, lgX + lgW + 8, lgY + lgH);
+  ctx.fillText(roundSmart(dmin), lgX + lgW + 6, lgY + lgH);
 
   // Axis labels and ticks
-  ctx.fillStyle = '#111827';
-  ctx.font = '13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+  const xTicks = niceAxis(xMin, xMax, 6);
+  const yTicks = niceAxis(yMin, yMax, 6);
 
-  // X-axis label
-  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-  ctx.fillText(`${xLabel}`, L + (W - L - R)/2, H - 8);
+  ctx.fillStyle = '#111827';
+  ctx.font = '11px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
 
   // X-axis tick values
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.font = '11px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-  ctx.fillText(roundSmart(xMin), L, H - B + 4);
-  ctx.fillText(roundSmart(xMax), W - R, H - B + 4);
-  ctx.fillText(roundSmart((xMin + xMax)/2), L + (W - L - R)/2, H - B + 4);
+  for (const xv of xTicks.ticks) {
+    ctx.fillText(xv.toFixed(xTicks.decimals), xOf(xv), H - B + 4);
+  }
+
+  // Y-axis tick values
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (const yv of yTicks.ticks) {
+    ctx.fillText(yv.toFixed(yTicks.decimals), L - 6, yOf(yv));
+  }
+
+  // X-axis label
+  ctx.fillStyle = '#111827';
+  ctx.font = '13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(`${xLabel}`, L + (W - L - R)/2, H - 8);
 
   // Y-axis label
   ctx.save();
   ctx.translate(16, T + (H - T - B)/2);
   ctx.rotate(-Math.PI/2);
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.font = '13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
   ctx.fillText(`${yLabel}`, 0, 0);
   ctx.restore();
 
-  // Y-axis tick values
-  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-  ctx.font = '11px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-  ctx.fillText(roundSmart(yMax), L - 4, T);
-  ctx.fillText(roundSmart(yMin), L - 4, H - B);
-  ctx.fillText(roundSmart((yMin + yMax)/2), L - 4, T + (H - T - B)/2);
-
   // Title
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillStyle = '#111827';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
   ctx.font = '16px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
   ctx.fillText(`Parameter Heatmap — ${titleLabel}`, L + (W - L - R)/2, 12);
 }
 
 function roundSmart(v){ const a=Math.abs(v); if(a>=100) return Math.round(v); if(a>=10) return Math.round(v*10)/10; return Math.round(v*100)/100; }
+
+// Nice axis tick calculation (from step4.js)
+function niceNum(range, round) {
+  const exponent = Math.floor(Math.log10(range));
+  const fraction = range / Math.pow(10, exponent);
+  let niceFraction;
+  if (round) {
+    if (fraction < 1.5) niceFraction = 1;
+    else if (fraction < 3.0) niceFraction = 2;
+    else if (fraction < 7.0) niceFraction = 5;
+    else niceFraction = 10;
+  } else {
+    if (fraction <= 1.0) niceFraction = 1;
+    else if (fraction <= 2.0) niceFraction = 2;
+    else if (fraction <= 5.0) niceFraction = 5;
+    else niceFraction = 10;
+  }
+  return niceFraction * Math.pow(10, exponent);
+}
+
+function niceAxis(min, max, maxTicks = 6) {
+  const range = niceNum(max - min || 1, false);
+  const tickSpacing = niceNum(range / (maxTicks - 1), true);
+  const niceMin = Math.floor(min / tickSpacing) * tickSpacing;
+  const niceMax = Math.ceil(max / tickSpacing) * tickSpacing;
+  const ticks = [];
+  for (let tick = niceMin; tick <= niceMax + tickSpacing * 0.5; tick += tickSpacing) {
+    if (tick >= min - tickSpacing * 0.01 && tick <= max + tickSpacing * 0.01) {
+      ticks.push(Math.round(tick * 1e10) / 1e10);
+    }
+  }
+  const decimals = Math.max(0, -Math.floor(Math.log10(tickSpacing)) + 1);
+  return { ticks, decimals };
+}
 
 // Turbo colormap approximation (0..1) -> [r,g,b] 0..255
 function turbo(t){
