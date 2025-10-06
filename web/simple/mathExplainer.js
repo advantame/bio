@@ -177,23 +177,40 @@ export const STEP1_EXPLANATION = `
 export const STEP2_EXPLANATION = `
 <h3>このステップについて</h3>
 <p>
-  設計した条件での時間発展をシミュレートします。蛍光強度（$F_{\\mathrm{green}}$, $F_{\\mathrm{yellow}}$）の
+  設計した条件での時間発展をシミュレートします。N（被食者）とP（捕食者）の濃度の
   時系列データを可視化し、振動の有無や周期を確認できます。
 </p>
 
 <h3>シミュレーションモデル</h3>
 <p>
-  システムは以下の常微分方程式系で記述されます：
+  システムは以下の常微分方程式系（SI S3, Eq. 3-4）で記述されます：
 </p>
 <p class="math-display">
-  $$\\frac{dP}{dt} = k_1' G T - b' N P$$
+  $$\\frac{dN}{dt} = \\underbrace{k_1 \\cdot \\mathrm{pol} \\cdot G \\cdot \\frac{N}{1+b \\cdot G \\cdot N}}_{\\text{被食者の増殖}} - \\underbrace{k_2 \\cdot \\mathrm{pol} \\cdot N \\cdot P}_{\\text{捕食による消費}} - \\underbrace{\\mathrm{rec} \\cdot k_N \\cdot \\frac{N}{1+\\frac{P}{K_{m,P}}}}_{\\text{分解}}$$
 </p>
 <p class="math-display">
-  $$\\frac{dG}{dt} = b' N P - \\beta' G$$
+  $$\\frac{dP}{dt} = \\underbrace{k_2 \\cdot \\mathrm{pol} \\cdot N \\cdot P}_{\\text{捕食者の増殖}} - \\underbrace{\\mathrm{rec} \\cdot k_P \\cdot \\frac{P}{1+\\frac{P}{K_{m,P}}}}_{\\text{分解}}$$
 </p>
 <p>
-  ここで $P$ はプライマー濃度、$G$ はゲート（二本鎖DNA）濃度、$T$ はテンプレート濃度、$N$ はニッカーゼ濃度です。
-  $k_1'$、$b'$、$\\beta'$ はStep①で設定したパラメータから計算される実効速度定数です。
+  ここで $N$ は被食者（prey）濃度、$P$ は捕食者（predator）濃度、$G$ はテンプレートDNA濃度です。
+  $\\mathrm{pol}$ と $\\mathrm{rec}$ は酵素濃度、$k_1, k_2, k_N, k_P$ は速度定数、$b$ は飽和パラメータ、$K_{m,P}$ はミカエリス定数です。
+</p>
+
+<h3>修飾カードの補正</h3>
+<p>
+  Step①で設定した修飾カードは、以下のようにベースラインパラメータを補正します：
+</p>
+<p class="math-display">
+  $$\\boxed{\\begin{aligned}
+  k_1' &= k_{1,\\mathrm{base}} \\cdot \\frac{r_{\\mathrm{assoc}} \\cdot r_{\\mathrm{poly}}}{r_{\\mathrm{nick}}} \\\\
+  b' &= b_{\\mathrm{base}} \\cdot \\frac{r_{\\mathrm{assoc}}}{r_{\\mathrm{nick}}} \\\\
+  k_2' &= k_{2,\\mathrm{base}} \\quad (\\text{変更しない}) \\\\
+  k_N', k_P', K_{m,P}' &= k_{N,\\mathrm{base}}, k_{P,\\mathrm{base}}, K_{m,P,\\mathrm{base}}
+  \\end{aligned}}$$
+</p>
+<p>
+  つまり、結合親和性（$r_{\\mathrm{assoc}}$）や酵素濃度（$r_{\\mathrm{poly}}$, $r_{\\mathrm{nick}}$）の変化は
+  $k_1$ と $b$ のみに反映され、捕食効率や分解速度は変更されません。
 </p>
 
 <h3>派生指標</h3>
