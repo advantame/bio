@@ -1,4 +1,4 @@
-import { initWasm, runSimulationPhysical } from "../core.js";
+import { initWasm, runSimulationPhysical, runSimulationAndEvaluate } from "../core.js";
 import {
   buildSimulationVariants,
   GAS_CONSTANT_KCAL,
@@ -109,6 +109,9 @@ runBtn.addEventListener('click', async () => {
   status.textContent = 'Running grid...';
   await initWasm();
 
+  // Performance timing
+  const startTime = performance.now();
+
   const xParam = el.xParam.value;
   const yParam = el.yParam.value;
   if (xParam === yParam){
@@ -159,10 +162,8 @@ runBtn.addEventListener('click', async () => {
           };
           variantMap.set(variant.id, entry);
         }
-        const { P } = runSimulationPhysical(variant.params);
-        const tail = Math.max(3, Math.floor(P.length * (tailPct/100)));
-        const start = P.length - tail;
-        const val = evaluateMetric(P, start, metric, variant.params.dt_min);
+        // Use optimized Rust implementation (eliminates data transfer overhead)
+        const val = runSimulationAndEvaluate(variant.params, metric, tailPct);
         entry.grid[j*nx + i] = Number.isFinite(val) ? val : NaN;
       }
     }
@@ -200,6 +201,11 @@ runBtn.addEventListener('click', async () => {
 
   populateVariantSelect(variants);
   renderHeatmapSelection();
+
+  // Report performance
+  const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+  console.log(`✅ Heatmap completed in ${elapsed}s (${nx}×${ny} = ${nx*ny} cells)`);
+  console.log(`   Average: ${(parseFloat(elapsed) / (nx*ny) * 1000).toFixed(2)}ms per cell`);
 
   runBtn.disabled = false;
 });

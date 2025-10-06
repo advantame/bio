@@ -1,7 +1,7 @@
 // Core utilities for running physical-parameter simulations via WASM
 // Exposes a small wrapper so multiple pages can share the same interface.
 
-import init, { simulate_physical } from "./pkg/pp_osc_wasm.js";
+import init, { simulate_physical, simulate_and_evaluate } from "./pkg/pp_osc_wasm.js";
 
 let wasmReady = false;
 
@@ -44,5 +44,41 @@ export function runSimulationPhysical(params) {
   const N = arr.slice(0, len);
   const P = arr.slice(len);
   return { N, P };
+}
+
+/**
+ * Run simulation and evaluate metric in one call (performance-optimized).
+ * Returns only the metric value (f64) instead of full time series.
+ *
+ * @param {Object} params - Simulation parameters (same as runSimulationPhysical)
+ * @param {string} metric - "amplitude", "period", or "period_fft"
+ * @param {number} tailPct - Percentage of tail to analyze (0-100)
+ * @returns {number} Metric value or NaN if computation fails
+ */
+export function runSimulationAndEvaluate(params, metric, tailPct) {
+  if (!wasmReady) throw new Error("WASM not initialized. Call initWasm() first.");
+
+  const {
+    pol = 3.7,
+    rec = 32.5,
+    G = 150,
+    k1 = 0.002,
+    k2 = 0.0031,
+    kN = 0.021,
+    kP = 0.0047,
+    b = 0.000048,
+    KmP = 34,
+    N0 = 10,
+    P0 = 10,
+    mod_factor = 1.0,
+    t_end_min = 3000,
+    dt_min = 0.5,
+  } = params || {};
+
+  return simulate_and_evaluate(
+    pol, rec, G, k1, k2, kN, kP, b, KmP, N0, P0,
+    mod_factor, t_end_min, dt_min,
+    metric, tailPct
+  );
 }
 
