@@ -3,7 +3,7 @@
 ## 現在の状態
 
 **Branch:** `main`
-**Last commit:** `f93e591` — "Add KaTeX math explanations and Japanese UI localization"
+**Last commit:** `0a5fd99` — "Fix Simple Flow routing and navigation issues"
 
 ### 完了済みフェーズ
 
@@ -222,18 +222,56 @@ matches Eq. 3 and 4 exactly."
 ### 完成状況
 - ✅ **Phase 0-6**: Simple Flow 4ステップワークフロー完全実装
 - ✅ **Phase 7**: KaTeX統合 + 日本語詳細説明 + UI日本語化
+- ✅ **Routing Fixes**: ステッパーナビゲーション、URL同期修正
+- ✅ **Legacy UI Improvements**: ヒートマップ軸目盛り、カラーバー修正
+- ✅ **FFT Period Detection**: 実験的フーリエ変換周期検出実装
 - ⏳ **Phase 8**: QA & Documentation（残タスク）
 
 ### 現在のアプリ状態
 - `/simple/` — 完全に動作する4ステップガイド付きワークフロー（日本語UI、数式説明付き）
-- `/detail/` — レガシー Workbench（v1↔v2互換性あり）
+- `/detail/` → `/simulator/` — レガシーUIのエントリポイント（Physical-Parameter Simulator）
+- `/heatmap/` — 軸目盛り、カラーバー表示改善、FFT周期検出実験機能
 - すべてのステップが自動保存、オーバーレイ、バリデーション機能を持つ
 
-### 次の優先タスク（Phase 8）
+### 新規実装された実験的機能
+
+**FFT周期検出** (レガシーヒートマップ):
+- `web/heatmap/heatmap.js`: `USE_FFT_PERIOD = true` でFFT方式に切り替え
+- ピーク検出より耐ノイズ性が高い（要検証）
+- ドキュメント: `docs/fft-period-detection.md`
+
+### 次の優先タスク
+
+#### Option A: Phase 8（QA & Documentation）
 1. **テスト・デバッグ**: ブラウザ互換性、数式表示、ステップ遷移
 2. **回帰テスト強化**: Node.js fetch shim 修正、ステップナビゲーションテスト追加
 3. **ドキュメント最終化**: AGENTS.md、specification.md 更新
 4. **アクセシビリティ確認**: キーボードナビゲーション、スクリーンリーダー対応
+
+#### Option B: Performance Optimization（推奨）⭐
+**ヒートマップ・分岐図の高速化**
+
+現在の性能: 20×15グリッド = 0.3-15秒（300セル）
+目標性能: <1秒（Phase 1）、<0.2秒（Phase 2）
+
+**実装プラン**: `docs/performance-optimization-plan.md`
+**ハンドオフ**: `docs/handoff-performance-optimization.md`
+
+**Phase 1** (Rust統合): 5-10倍高速化
+- 周期検出をRustに移動（`simulate_and_evaluate`）
+- rustfftでFFT実装
+- データ転送オーバーヘッド削減
+
+**Phase 2A** (Web Workers): 追加3-4倍高速化
+- マルチコア並列実行
+- 実装容易、全ブラウザ対応
+
+**Phase 3** (WebGPU): 50-100倍高速化（実験的）
+- GPU並列実行（10,000セル同時）
+- Chrome 113+限定
+- 100×100グリッドで5-10秒
+
+**推奨**: Phase 1から着手（最もコスパ良い）
 
 ### テスト・デバッグ開始の準備
 
