@@ -204,6 +204,9 @@ runBtn.addEventListener('click', async () => {
   runBtn.disabled = false;
 });
 
+// Experimental: Use FFT for period detection (set to true to enable)
+const USE_FFT_PERIOD = false;
+
 function evaluateMetric(series, startIdx, metric, dt){
   const len = series.length;
   if (len <= startIdx) return NaN;
@@ -217,19 +220,89 @@ function evaluateMetric(series, startIdx, metric, dt){
     return pmax - pmin;
   }
   if (metric === 'period'){
-    const peaks = [];
-    for (let i=Math.max(startIdx+1,1); i<len-1; i++){
-      const a = series[i-1], b = series[i], c = series[i+1];
-      if (b > a && b > c) peaks.push(i);
-    }
-    if (peaks.length >= 2){
-      let sum = 0;
-      for (let i=1;i<peaks.length;i++) sum += (peaks[i] - peaks[i-1]);
-      const meanStep = sum / (peaks.length - 1);
-      return meanStep * (dt || 1);
+    // Choose between FFT and peak-counting methods
+    if (USE_FFT_PERIOD) {
+      return evaluatePeriodFFT(series, startIdx, dt);
+    } else {
+      return evaluatePeriodPeaks(series, startIdx, dt);
     }
   }
   return NaN;
+}
+
+// Original peak-counting method
+function evaluatePeriodPeaks(series, startIdx, dt){
+  const len = series.length;
+  const peaks = [];
+  for (let i=Math.max(startIdx+1,1); i<len-1; i++){
+    const a = series[i-1], b = series[i], c = series[i+1];
+    if (b > a && b > c) peaks.push(i);
+  }
+  if (peaks.length >= 2){
+    let sum = 0;
+    for (let i=1;i<peaks.length;i++) sum += (peaks[i] - peaks[i-1]);
+    const meanStep = sum / (peaks.length - 1);
+    return meanStep * (dt || 1);
+  }
+  return NaN;
+}
+
+// FFT-based period detection
+function evaluatePeriodFFT(series, startIdx, dt){
+  const len = series.length;
+  const n = len - startIdx;
+  if (n < 4) return NaN;
+
+  // Extract analysis window
+  const signal = new Array(n);
+  let mean = 0;
+  for (let i=0; i<n; i++){
+    signal[i] = series[startIdx + i];
+    mean += signal[i];
+  }
+  mean /= n;
+
+  // Remove DC component (mean)
+  for (let i=0; i<n; i++){
+    signal[i] -= mean;
+  }
+
+  // Compute power spectrum using DFT
+  // Only need first half (Nyquist frequency)
+  const nHalf = Math.floor(n / 2);
+  const power = new Array(nHalf);
+
+  for (let k=1; k<nHalf; k++){ // Skip DC (k=0)
+    let real = 0, imag = 0;
+    const omega = 2 * Math.PI * k / n;
+    for (let i=0; i<n; i++){
+      const angle = omega * i;
+      real += signal[i] * Math.cos(angle);
+      imag += signal[i] * Math.sin(angle);
+    }
+    power[k] = real * real + imag * imag;
+  }
+
+  // Find dominant frequency (peak in power spectrum)
+  let maxPower = 0;
+  let maxK = 0;
+  for (let k=1; k<nHalf; k++){
+    if (power[k] > maxPower){
+      maxPower = power[k];
+      maxK = k;
+    }
+  }
+
+  // Require significant oscillation (power above noise threshold)
+  const avgPower = power.reduce((a,b) => a+b, 0) / power.length;
+  if (maxPower < 3 * avgPower) return NaN; // No clear oscillation
+
+  // Convert frequency bin to period
+  // Frequency (Hz) = k / (n * dt)
+  // Period (time) = 1 / frequency = (n * dt) / k
+  const period = (n * (dt || 1)) / maxK;
+
+  return period;
 }
 
 function populateVariantSelect(variants){
