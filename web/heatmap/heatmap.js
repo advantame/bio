@@ -205,7 +205,8 @@ runBtn.addEventListener('click', async () => {
 });
 
 // Experimental: Use FFT for period detection (set to true to enable)
-const USE_FFT_PERIOD = false;
+// Change in browser console: USE_FFT_PERIOD = true
+let USE_FFT_PERIOD = false;
 
 function evaluateMetric(series, startIdx, metric, dt){
   const len = series.length;
