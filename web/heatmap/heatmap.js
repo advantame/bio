@@ -450,13 +450,40 @@ function drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, metri
   ctx.textBaseline = 'bottom';
   ctx.fillText(`${metricLabel} min: ${roundSmart(dmin)}`, lgX + lgW + 8, lgY + lgH);
 
-  // Axis ticks (simple)
-  ctx.fillStyle = '#111827'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  // Axis labels and ticks
+  ctx.fillStyle = '#111827';
   ctx.font = '13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+
+  // X-axis label
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
   ctx.fillText(`${xLabel}`, L + (W - L - R)/2, H - 8);
-  ctx.save(); ctx.translate(16, T + (H - T - B)/2); ctx.rotate(-Math.PI/2);
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(`${yLabel}`, 0, 0); ctx.restore();
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.font = '16px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+
+  // X-axis tick values
+  ctx.textBaseline = 'top';
+  ctx.font = '11px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+  ctx.fillText(roundSmart(xMin), L, H - B + 4);
+  ctx.fillText(roundSmart(xMax), W - R, H - B + 4);
+  ctx.fillText(roundSmart((xMin + xMax)/2), L + (W - L - R)/2, H - B + 4);
+
+  // Y-axis label
+  ctx.save();
+  ctx.translate(16, T + (H - T - B)/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.font = '13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+  ctx.fillText(`${yLabel}`, 0, 0);
+  ctx.restore();
+
+  // Y-axis tick values
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.font = '11px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+  ctx.fillText(roundSmart(yMax), L - 4, T);
+  ctx.fillText(roundSmart(yMin), L - 4, H - B);
+  ctx.fillText(roundSmart((yMin + yMax)/2), L - 4, T + (H - T - B)/2);
+
+  // Title
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.font = '16px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
   ctx.fillText(`Parameter Heatmap — ${titleLabel}`, L + (W - L - R)/2, 12);
 }
 
