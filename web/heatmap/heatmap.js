@@ -624,6 +624,8 @@ function drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, metri
     dmin = 0; dmax = 1;
   }
 
+  // Metric display label with units
+  const metricUnit = metric === 'period' ? ' [min]' : (metric === 'amplitude' ? ' [nM]' : '');
   const metricLabel = variantInfo && variantInfo.mode === 'delta' ? `Δ${metric}` : metric;
   const titleLabel = variantInfo ? `${variantInfo.label} ${variantInfo.mode === 'delta' ? 'Δ vs baseline' : ''}`.trim() : 'Baseline';
 
@@ -666,14 +668,14 @@ function drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, metri
   }
   ctx.strokeStyle = '#334155'; ctx.strokeRect(lgX, lgY, lgW, lgH);
 
-  // Color bar value labels - numbers only
+  // Color bar value labels with units
   ctx.fillStyle = '#0f172a';
   ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  ctx.fillText(roundSmart(dmax), lgX + lgW + 6, lgY);
+  ctx.fillText(roundSmart(dmax) + metricUnit, lgX + lgW + 6, lgY);
   ctx.textBaseline = 'bottom';
-  ctx.fillText(roundSmart(dmin), lgX + lgW + 6, lgY + lgH);
+  ctx.fillText(roundSmart(dmin) + metricUnit, lgX + lgW + 6, lgY + lgH);
 
   // Axis labels and ticks
   const xTicks = niceAxis(xMin, xMax, 6);
