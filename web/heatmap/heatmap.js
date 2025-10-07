@@ -757,15 +757,16 @@ function niceAxis(min, max, maxTicks = 6) {
 }
 
 // Turbo colormap approximation (0..1) -> [r,g,b] 0..255
+// Official Google AI implementation by Anton Mikhailov
+// https://gist.github.com/mikhailov-work/ee72ba4191942acecc03fe6da94fc73f
 function turbo(t){
-  // From Google Turbo colormap polynomial approximation
-  t = Math.min(1, Math.max(0, t));
-  const r = Math.round(255 * (0.13572138 + 4.61539260*t - 42.66032258*t*t + 132.13108234*t*t*t - 152.94239396*t*t*t*t + 59.28637943*t*t*t*t*t));
-  const g = Math.round(255 * (0.09140261 + 2.19418839*t + 4.84296658*t*t - 14.18503333*t*t*t + 14.13802336*t*t*t*t - 4.23619627*t*t*t*t*t));
-  const b = Math.round(255 * (0.10667330 + 12.64194608*t - 60.58204836*t*t + 110.36276771*t*t*t - 89.97024368*t*t*t*t + 27.34829594*t*t*t*t*t));
+  t = Math.max(0, Math.min(1, t));
+  const r = 34.61 + t * (1172.33 - t * (10793.56 - t * (33300.12 - t * (38394.49 - t * 14825.05))));
+  const g = 23.31 + t * (557.33 + t * (1225.33 - t * (3574.96 - t * (1073.77 + t * 707.56))));
+  const b = 27.2 + t * (3211.1 - t * (15327.97 - t * (27814 - t * (22569.18 - t * 6838.66))));
   return [
-    Math.min(255, Math.max(0, r)),
-    Math.min(255, Math.max(0, g)),
-    Math.min(255, Math.max(0, b)),
+    Math.max(0, Math.min(255, Math.round(r))),
+    Math.max(0, Math.min(255, Math.round(g))),
+    Math.max(0, Math.min(255, Math.round(b))),
   ];
 }
