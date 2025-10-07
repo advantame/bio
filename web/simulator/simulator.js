@@ -76,7 +76,7 @@ function niceAxis(min, max, maxTicks=6){
 }
 
 // ---------- Drawing ----------
-function drawTimeSeries(seriesList){
+function drawTimeSeries(seriesList, dt){
   const W = cvTS.width, H = cvTS.height;
   const L = 70, R = 30, T = 50, B = 60;
 
@@ -97,11 +97,12 @@ function drawTimeSeries(seriesList){
   }
   const yPad = 0.05 * (dataYmax - dataYmin || 1);
   const yTicks  = niceAxis(dataYmin - yPad, dataYmax + yPad, 6);
-  const xTicks  = niceAxis(0, Math.max(1, nMax - 1), 7);
+  const tMax = (nMax - 1) * dt;
+  const xTicks  = niceAxis(0, Math.max(0, tMax), 7);
 
   const axisWidth = Math.max(1, xTicks.max - xTicks.min);
   const axisHeight = Math.max(1, yTicks.max - yTicks.min);
-  const xOf = (i) => L + ((i - xTicks.min)/axisWidth) * (W - L - R);
+  const xOf = (timeMin) => L + ((timeMin - xTicks.min)/axisWidth) * (W - L - R);
   const yOf = (v) => H - B - ((v - yTicks.min)/axisHeight) * (H - T - B);
 
   ctxTS.strokeStyle = '#eef2f7';
@@ -120,7 +121,8 @@ function drawTimeSeries(seriesList){
     ctxTS.beginPath();
     const prey = series.prey;
     for (let i=0;i<prey.length;i++){
-      const x = xOf(i);
+      const t = i * dt;
+      const x = xOf(t);
       const y = yOf(prey[i]);
       if (i === 0) ctxTS.moveTo(x,y); else ctxTS.lineTo(x,y);
     }
@@ -130,7 +132,8 @@ function drawTimeSeries(seriesList){
     ctxTS.beginPath();
     const P = series.P;
     for (let i=0;i<P.length;i++){
-      const x = xOf(i);
+      const t = i * dt;
+      const x = xOf(t);
       const y = yOf(P[i]);
       if (i === 0) ctxTS.moveTo(x,y); else ctxTS.lineTo(x,y);
     }
@@ -142,7 +145,9 @@ function drawTimeSeries(seriesList){
   ctxTS.fillStyle = '#0f172a';
   ctxTS.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
   ctxTS.textAlign = 'center'; ctxTS.textBaseline = 'top';
-  for (const xv of xTicks.ticks){ const x = xOf(xv); ctxTS.fillText(String(Math.round(xv)), x, H - B + 6); }
+  const xRange = Math.abs(xTicks.max - xTicks.min);
+  const xDigits = xRange >= 100 ? 0 : (xRange >= 10 ? 1 : 2);
+  for (const xv of xTicks.ticks){ const x = xOf(xv); ctxTS.fillText(xv.toFixed(xDigits), x, H - B + 6); }
   ctxTS.textAlign = 'right'; ctxTS.textBaseline = 'middle';
   const absRange = Math.abs(yTicks.max - yTicks.min);
   const digits = absRange >= 100 ? 0 : (absRange >= 10 ? 1 : 2);
@@ -335,7 +340,7 @@ async function animate(){
       });
     }
 
-    drawTimeSeries(seriesList);
+    drawTimeSeries(seriesList, baseParams.dt_min);
     drawPhase(seriesList);
     renderLegend(seriesList);
     updateModSummary(seriesList);
