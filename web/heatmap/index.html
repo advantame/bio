@@ -11,9 +11,13 @@
   .rows { display:grid; grid-template-columns: 160px 1fr 120px; gap:10px 10px; align-items:center; }
   .row { display:contents; }
   input[type="number"], select { width:100%; box-sizing:border-box; }
+  input[type="number"]:disabled, select:disabled { background:#f5f5f5; color:#999; cursor:not-allowed; }
   .buttons { display:flex; gap:10px; margin-top:12px; }
   button { padding:8px 12px; border-radius:8px; border:1px solid #d1d5db; background:#f8f8f8; cursor:pointer; }
   button:hover { background:#f0f0f0; }
+  .section { border:1px solid #e5e7eb; border-radius:8px; padding:14px; margin-bottom:12px; background:#fafafa; }
+  .section-title { font-size:1.05rem; font-weight:600; margin:0 0 10px; color:#374151; }
+  .param-group { display:grid; grid-template-columns: 160px 1fr; gap:10px 10px; align-items:center; margin-top:10px; }
   .nav { display:flex; gap:12px; flex-wrap:wrap; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:#fff; }
   .nav a { color:#2563eb; text-decoration:none; }
   .nav a:hover { text-decoration:underline; }
@@ -44,86 +48,113 @@
         </div>
       </div>
       <div class="card" style="flex:1 1 360px; min-width:320px;">
-        <div class="rows" style="margin-bottom:10px;">
-          <div class="row">
-            <label for="preset">プリセット</label>
-           <select id="preset">
-             <option value="none">選択してください</option>
+        <!-- プリセット選択 -->
+        <div class="section">
+          <h3 class="section-title">📋 プリセット</h3>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <select id="preset" style="flex:1;">
+              <option value="none">選択してください</option>
               <option value="mod_assoc">アミノ酸修飾の影響（周期）</option>
               <option value="balance">酵素バランスと安定性（振幅）</option>
             </select>
-            <button id="applyPreset">Apply</button>
+            <button id="applyPreset">適用</button>
           </div>
+          <div id="presetDesc" class="note" style="margin-top:8px;"></div>
         </div>
-        <div class="rows">
-          <div class="row">
-            <label for="xParam">Xパラメータ</label>
+
+        <!-- ヒートマップ設定 -->
+        <div class="section">
+          <h3 class="section-title">📊 ヒートマップ設定</h3>
+
+          <div class="param-group">
+            <label for="xParam"><strong>X軸パラメータ</strong></label>
             <select id="xParam">
-              <option value="G">G</option>
-              <option value="k1">k1</option>
-              <option value="assoc_ddg">ΔΔG_assoc</option>
-              <option value="assoc_r">r_assoc</option>
-              <option value="pol">pol</option>
-              <option value="rec">rec</option>
-              <option value="KmP">KmP</option>
-              <option value="N0">N0</option>
-              <option value="P0">P0</option>
+              <option value="G">G (鋳型濃度)</option>
+              <option value="k1">k₁ (会合速度定数)</option>
+              <option value="assoc_ddg">ΔΔG_assoc (自由エネルギー差)</option>
+              <option value="assoc_r">r_assoc (会合比)</option>
+              <option value="pol">pol (ポリメラーゼ濃度)</option>
+              <option value="rec">rec (分解酵素濃度)</option>
+              <option value="KmP">KmP (ミカエリス定数)</option>
+              <option value="N0">N₀ (初期prey濃度)</option>
+              <option value="P0">P₀ (初期predator濃度)</option>
             </select>
-            <div></div>
+            <label for="xMin">　最小値</label>
+            <input id="xMin" type="number" step="0.01" value="50">
+            <label for="xMax">　最大値</label>
+            <input id="xMax" type="number" step="0.01" value="300">
+            <label for="xSteps">　分割数</label>
+            <input id="xSteps" type="number" step="1" value="40">
           </div>
-          <div class="row"><label for="xMin">X最小</label><input id="xMin" type="number" step="0.01" value="50"><div></div></div>
-          <div class="row"><label for="xMax">X最大</label><input id="xMax" type="number" step="0.01" value="300"><div></div></div>
-          <div class="row"><label for="xSteps">Xステップ</label><input id="xSteps" type="number" step="1" value="40"><div></div></div>
 
-          <div class="row">
-            <label for="yParam">Yパラメータ</label>
+          <div class="param-group" style="margin-top:16px;">
+            <label for="yParam"><strong>Y軸パラメータ</strong></label>
             <select id="yParam">
-              <option value="k1">k1</option>
-              <option value="G">G</option>
-              <option value="assoc_ddg">ΔΔG_assoc</option>
-              <option value="assoc_r">r_assoc</option>
-              <option value="pol">pol</option>
-              <option value="rec">rec</option>
-              <option value="KmP">KmP</option>
-              <option value="N0">N0</option>
-              <option value="P0">P0</option>
+              <option value="k1">k₁ (会合速度定数)</option>
+              <option value="G">G (鋳型濃度)</option>
+              <option value="assoc_ddg">ΔΔG_assoc (自由エネルギー差)</option>
+              <option value="assoc_r">r_assoc (会合比)</option>
+              <option value="pol">pol (ポリメラーゼ濃度)</option>
+              <option value="rec">rec (分解酵素濃度)</option>
+              <option value="KmP">KmP (ミカエリス定数)</option>
+              <option value="N0">N₀ (初期prey濃度)</option>
+              <option value="P0">P₀ (初期predator濃度)</option>
             </select>
-            <div></div>
+            <label for="yMin">　最小値</label>
+            <input id="yMin" type="number" step="0.01" value="0.2">
+            <label for="yMax">　最大値</label>
+            <input id="yMax" type="number" step="0.01" value="1.5">
+            <label for="ySteps">　分割数</label>
+            <input id="ySteps" type="number" step="1" value="30">
           </div>
-          <div class="row"><label for="yMin">Y最小</label><input id="yMin" type="number" step="0.01" value="0.2"><div></div></div>
-          <div class="row"><label for="yMax">Y最大</label><input id="yMax" type="number" step="0.01" value="1.5"><div></div></div>
-          <div class="row"><label for="ySteps">Yステップ</label><input id="ySteps" type="number" step="1" value="30"><div></div></div>
 
-          <div class="row">
-            <label for="metric">指標</label>
+          <div class="param-group" style="margin-top:16px;">
+            <label for="metric"><strong>評価指標</strong></label>
             <select id="metric">
-              <option value="amplitude">振幅（Pのmax-min）[nM]</option>
-              <option value="period">周期（Pピーク間平均）[min]</option>
+              <option value="amplitude">振幅 (max-min) [nM]</option>
+              <option value="period">周期 (ピーク間平均) [min]</option>
             </select>
-            <div></div>
+            <label for="tail">評価区間 (末尾%)</label>
+            <input id="tail" type="number" step="1" value="30">
+            <label for="t_end">シミュレーション時間 [min]</label>
+            <input id="t_end" type="number" step="100" value="2600">
+            <label for="dt">時間刻み幅 [min]</label>
+            <input id="dt" type="number" step="0.1" value="1">
           </div>
-
-          <div class="row"><label for="t_end">t_end [min]</label><input id="t_end" type="number" step="100" value="2600"><div></div></div>
-          <div class="row"><label for="dt">dt [min]</label><input id="dt" type="number" step="0.1" value="1"><div></div></div>
-          <div class="row"><label for="tail">評価区間（末尾%）</label><input id="tail" type="number" step="1" value="30"><div></div></div>
-
-          <!-- ベースパラメータ -->
-          <div class="row"><label>pol</label><input id="pol" type="number" step="0.01" value="1"><div></div></div>
-          <div class="row"><label>rec</label><input id="rec" type="number" step="0.01" value="1"><div></div></div>
-          <div class="row"><label>G</label><input id="G" type="number" step="1" value="160"><div></div></div>
-          <div class="row"><label>k1</label><input id="k1" type="number" step="0.01" value="1"><div></div></div>
-          <div class="row"><label>k2</label><input id="k2" type="number" step="0.01" value="0.1"><div></div></div>
-          <div class="row"><label>kN</label><input id="kN" type="number" step="0.01" value="1"><div></div></div>
-          <div class="row"><label>kP</label><input id="kP" type="number" step="0.01" value="1"><div></div></div>
-          <div class="row"><label>b</label><input id="b" type="number" step="0.0005" value="0.005"><div></div></div>
-          <div class="row"><label>KmP</label><input id="KmP" type="number" step="1" value="34"><div></div></div>
-          <div class="row"><label>N0 [nM]</label><input id="N0" type="number" step="0.1" value="10"><div></div></div>
-          <div class="row"><label>P0 [nM]</label><input id="P0" type="number" step="0.1" value="10"><div></div></div>
         </div>
+
+        <!-- ベースパラメータ -->
+        <div class="section">
+          <h3 class="section-title">⚙️ ベースパラメータ（固定値）</h3>
+          <div class="param-group">
+            <label for="pol">pol [nM]</label>
+            <input id="pol" type="number" step="0.01" value="3.7">
+            <label for="rec">rec [nM]</label>
+            <input id="rec" type="number" step="0.01" value="32.5">
+            <label for="G">G [nM]</label>
+            <input id="G" type="number" step="1" value="150">
+            <label for="k1">k₁ [nM⁻¹min⁻¹]</label>
+            <input id="k1" type="number" step="0.0001" value="0.0020">
+            <label for="k2">k₂ [min⁻¹]</label>
+            <input id="k2" type="number" step="0.0001" value="0.0031">
+            <label for="kN">kN [min⁻¹]</label>
+            <input id="kN" type="number" step="0.001" value="0.0210">
+            <label for="kP">kP [min⁻¹]</label>
+            <input id="kP" type="number" step="0.0001" value="0.0047">
+            <label for="b">b [nM⁻¹]</label>
+            <input id="b" type="number" step="0.000001" value="0.000048">
+            <label for="KmP">KmP [nM]</label>
+            <input id="KmP" type="number" step="1" value="34">
+            <label for="N0">N₀ [nM]</label>
+            <input id="N0" type="number" step="0.1" value="10">
+            <label for="P0">P₀ [nM]</label>
+            <input id="P0" type="number" step="0.1" value="10">
+          </div>
+        </div>
+
         <div class="buttons">
-          <button id="runBtn">Run</button>
+          <button id="runBtn">🚀 ヒートマップを生成</button>
         </div>
-        <div id="presetDesc" class="note" style="margin-top:8px;"></div>
       </div>
     </div>
   </div>

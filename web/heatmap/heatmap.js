@@ -603,11 +603,57 @@ function applyQueryParams(){
 applyPresetBtn.addEventListener('click', () => {
   const v = presetSel.value;
   applyPresetValue(v);
+  updateParameterAvailability();
 });
+
+// Parameter grayout logic: disable base parameter fields when they are used as axes
+function updateParameterAvailability(){
+  const xParam = el.xParam.value;
+  const yParam = el.yParam.value;
+  const axisParams = new Set([xParam, yParam]);
+
+  // Map axis parameter names to form field IDs
+  const paramMap = {
+    'pol': 'pol',
+    'rec': 'rec',
+    'G': 'G',
+    'k1': 'k1',
+    'KmP': 'KmP',
+    'N0': 'N0',
+    'P0': 'P0',
+    // assoc_ddg and assoc_r affect k1 and b, so disable both
+    'assoc_ddg': ['k1', 'b'],
+    'assoc_r': ['k1', 'b'],
+  };
+
+  // Reset all base parameters to enabled
+  ['pol', 'rec', 'G', 'k1', 'k2', 'kN', 'kP', 'b', 'KmP', 'N0', 'P0'].forEach(id => {
+    const field = document.getElementById(id);
+    if (field) field.disabled = false;
+  });
+
+  // Disable fields that are used as axes
+  axisParams.forEach(param => {
+    const fieldIds = paramMap[param];
+    if (Array.isArray(fieldIds)) {
+      fieldIds.forEach(id => {
+        const field = document.getElementById(id);
+        if (field) field.disabled = true;
+      });
+    } else if (fieldIds) {
+      const field = document.getElementById(fieldIds);
+      if (field) field.disabled = true;
+    }
+  });
+}
+
+el.xParam.addEventListener('change', updateParameterAvailability);
+el.yParam.addEventListener('change', updateParameterAvailability);
 
 initDefaults();
 applyPresetValue(presetSel.value);
 applyQueryParams();
+updateParameterAvailability();
 if (variantSelect) variantSelect.addEventListener('change', renderHeatmapSelection);
 
 function drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, metric, variantInfo){
