@@ -62,6 +62,8 @@ function axisLabel(name){
     case 'assoc_ddg': return 'ΔΔG_assoc [kcal/mol]';
     case 'assoc_r': return 'r_assoc';
     case 'k1': return 'k1';
+    case 'N0': return 'N0 [nM]';
+    case 'P0': return 'P0 [nM]';
     default: return name;
   }
 }
