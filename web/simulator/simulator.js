@@ -12,7 +12,7 @@ const legendEl = byId('legend');
 const modSummaryEl = byId('modSummary');
 
 const s = bindSliders([
-  'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0','t_end','dt'
+  'pol','rec','G','r_assoc','r_nick','r_poly','k2','kN','kP','KmP','N0','P0','t_end','dt'
 ]);
 
 const DEFAULTS = {
@@ -20,17 +20,22 @@ const DEFAULTS = {
   pol: 3.7,
   rec: 32.5,
   G: 150,
-  k1: 0.0020,
+  r_assoc: 1.0,
+  r_nick: 1.0,
+  r_poly: 1.0,
   k2: 0.0031,
   kN: 0.0210,
   kP: 0.0047,
-  b:  0.000048,
   KmP: 34,
   N0: 10,
   P0: 10,
   t_end: 2000,
   dt: 0.5,
 };
+
+// Baseline values for k1 and b (used when all ratios = 1)
+const K1_BASE = 0.0020;
+const B_BASE = 0.000048;
 
 const BASELINE_COLORS = { prey: '#f97316', pred: '#2c7a7b', lineDash: [] };
 const ACTIVE_COLORS = { prey: '#2563eb', pred: '#0ea5e9', lineDash: [] };
@@ -176,7 +181,7 @@ function drawPhase(seriesList){
   let xMin = Infinity, xMax = -Infinity;
   let yMin = Infinity, yMax = -Infinity;
   for (const series of seriesList){
-    for (const v of series.N){ if (v < xMin) xMin = v; if (v > xMax) xMax = v; }
+    for (const v of series.prey){ if (v < xMin) xMin = v; if (v > xMax) xMax = v; }
     for (const v of series.P){ if (v < yMin) yMin = v; if (v > yMax) yMax = v; }
   }
   const xPad = 0.05 * (xMax - xMin || 1);
@@ -199,10 +204,10 @@ function drawPhase(seriesList){
     ctxPH.lineWidth = series.type === 'baseline' ? 2.0 : 1.7;
     ctxPH.setLineDash(series.lineDash || []);
     ctxPH.beginPath();
-    const N = series.N;
+    const prey = series.prey;
     const P = series.P;
-    for (let i=0;i<N.length;i++){
-      const x = xOf(N[i]);
+    for (let i=0;i<prey.length;i++){
+      const x = xOf(prey[i]);
       const y = yOf(P[i]);
       if (i === 0) ctxPH.moveTo(x,y); else ctxPH.lineTo(x,y);
     }
@@ -222,7 +227,7 @@ function drawPhase(seriesList){
   ctxPH.fillStyle = '#111827';
   ctxPH.textAlign = 'center'; ctxPH.textBaseline = 'bottom';
   ctxPH.font = '13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-  ctxPH.fillText('N [nM]', L + (W - L - R)/2, H - 8);
+  ctxPH.fillText('Prey [nM]', L + (W - L - R)/2, H - 8);
   ctxPH.save();
   ctxPH.translate(16, T + (H - T - B)/2); ctxPH.rotate(-Math.PI/2);
   ctxPH.textAlign = 'center'; ctxPH.textBaseline = 'top';
@@ -230,7 +235,7 @@ function drawPhase(seriesList){
   ctxPH.restore();
   ctxPH.textAlign = 'center'; ctxPH.textBaseline = 'top';
   ctxPH.font = '16px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-  ctxPH.fillText('Phase Portrait (N vs P)', L + (W - L - R)/2, 12);
+  ctxPH.fillText('Phase Portrait (Prey vs P)', L + (W - L - R)/2, 12);
 }
 
 function roundSmart(v){
@@ -284,13 +289,23 @@ function updateModSummary(seriesList){
   if (!modSummaryEl) return;
   const baseline = seriesList.find((s) => s.type === 'baseline');
   const active = seriesList.find((s) => s.type === 'active');
-  if (!active) {
-    modSummaryEl.textContent = 'Active modification: none (baseline parameters in use).';
-    return;
+
+  // Display current k1 and b values computed from ratios
+  const r_assoc = gNum('r_assoc');
+  const r_nick = gNum('r_nick');
+  const r_poly = gNum('r_poly');
+  const k1 = K1_BASE * (r_assoc * r_poly / r_nick);
+  const b = B_BASE * (r_assoc / r_nick);
+
+  let summary = `Current: k1=${k1.toExponential(3)}, b=${b.toExponential(3)} (r_assoc=${r_assoc.toFixed(2)}, r_nick=${r_nick.toFixed(2)}, r_poly=${r_poly.toFixed(2)})`;
+
+  if (active) {
+    const ratioK1 = baseline ? active.derived.k1Eff / baseline.derived.k1Eff : 1;
+    const ratioB = baseline ? active.derived.bEff / baseline.derived.bEff : 1;
+    summary += ` | ${active.label}: k1'=${active.derived.k1Eff.toExponential(3)} (${ratioK1.toFixed(2)}×), b'=${active.derived.bEff.toExponential(3)} (${ratioB.toFixed(2)}×)`;
   }
-  const ratioK1 = baseline ? active.derived.k1Eff / baseline.derived.k1Eff : 1;
-  const ratioB = baseline ? active.derived.bEff / baseline.derived.bEff : 1;
-  modSummaryEl.textContent = `${active.label}: k1'=${active.derived.k1Eff.toExponential(3)} (${ratioK1.toFixed(2)}×), b'=${active.derived.bEff.toExponential(3)} (${ratioB.toFixed(2)}×), β'=${active.derived.betaEff.toFixed(3)}.`;
+
+  modSummaryEl.textContent = summary;
 }
 
 // ---------- Engine ----------
@@ -301,9 +316,17 @@ window.addEventListener('storage', () => requestUpdate());
 window.addEventListener('focus', () => requestUpdate());
 
 function getVals(){
+  const r_assoc = gNum('r_assoc');
+  const r_nick = gNum('r_nick');
+  const r_poly = gNum('r_poly');
+
+  // Compute k1 and b from ratios
+  const k1 = K1_BASE * (r_assoc * r_poly / r_nick);
+  const b = B_BASE * (r_assoc / r_nick);
+
   return {
     pol: gNum('pol'), rec: gNum('rec'), G: gNum('G'),
-    k1: gNum('k1'), k2: gNum('k2'), kN: gNum('kN'), kP: gNum('kP'), b: gNum('b'), KmP: gNum('KmP'),
+    k1, k2: gNum('k2'), kN: gNum('kN'), kP: gNum('kP'), b, KmP: gNum('KmP'),
     N0: gNum('N0'), P0: gNum('P0'),
     t_end_min: gNum('t_end'), dt_min: gNum('dt')
   };

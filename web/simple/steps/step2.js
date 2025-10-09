@@ -278,7 +278,7 @@ function drawPhase(seriesList) {
   let xMin = Infinity, xMax = -Infinity;
   let yMin = Infinity, yMax = -Infinity;
   for (const series of seriesList) {
-    for (const v of series.N) { if (v < xMin) xMin = v; if (v > xMax) xMax = v; }
+    for (const v of series.prey) { if (v < xMin) xMin = v; if (v > xMax) xMax = v; }
     for (const v of series.P) { if (v < yMin) yMin = v; if (v > yMax) yMax = v; }
   }
   const xPad = 0.05 * (xMax - xMin || 1);
@@ -301,10 +301,10 @@ function drawPhase(seriesList) {
     ctxPH.lineWidth = series.type === 'baseline' ? 2.0 : 1.7;
     ctxPH.setLineDash(series.lineDash || []);
     ctxPH.beginPath();
-    const N = series.N;
+    const prey = series.prey;
     const P = series.P;
-    for (let i = 0; i < N.length; i++) {
-      const x = xOf(N[i]);
+    for (let i = 0; i < prey.length; i++) {
+      const x = xOf(prey[i]);
       const y = yOf(P[i]);
       if (i === 0) ctxPH.moveTo(x, y); else ctxPH.lineTo(x, y);
     }
@@ -324,7 +324,7 @@ function drawPhase(seriesList) {
   ctxPH.fillStyle = '#111827';
   ctxPH.textAlign = 'center'; ctxPH.textBaseline = 'bottom';
   ctxPH.font = '13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-  ctxPH.fillText('N [nM]', L + (W - L - R) / 2, H - 8);
+  ctxPH.fillText('Prey [nM]', L + (W - L - R) / 2, H - 8);
   ctxPH.save();
   ctxPH.translate(16, T + (H - T - B) / 2); ctxPH.rotate(-Math.PI / 2);
   ctxPH.textAlign = 'center'; ctxPH.textBaseline = 'top';
@@ -332,7 +332,7 @@ function drawPhase(seriesList) {
   ctxPH.restore();
   ctxPH.textAlign = 'center'; ctxPH.textBaseline = 'top';
   ctxPH.font = '16px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-  ctxPH.fillText('Phase Portrait (N vs P)', L + (W - L - R) / 2, 12);
+  ctxPH.fillText('Phase Portrait (Prey vs P)', L + (W - L - R) / 2, 12);
 }
 
 function renderLegend(seriesList) {
