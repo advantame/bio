@@ -1,0 +1,174 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>(g, β)等高線図 — PP-oscillation</title>
+<style>
+  :root { --line:#e5e7eb; --muted:#666; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; margin:16px; background:#fafafa; }
+  .wrap { display:flex; flex-direction:column; gap:16px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; box-shadow:0 1px 2px rgba(0,0,0,.03); }
+  .note { color:var(--muted); font-size:.92rem; line-height:1.6; margin-top:8px; }
+  canvas { background:#fff; border:1px solid var(--line); border-radius:10px; width:100%; max-width:1200px; height:auto; }
+  .section { border:1px solid #e5e7eb; border-radius:8px; padding:14px; margin-bottom:12px; background:#fafafa; }
+  .section-title { font-size:1.05rem; font-weight:600; margin:0 0 10px; color:#374151; }
+  .param-group { display:grid; grid-template-columns: 160px 1fr; gap:10px 10px; align-items:center; margin-top:10px; }
+  .buttons { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+  button { padding:8px 12px; border-radius:8px; border:1px solid #d1d5db; background:#f8f8f8; cursor:pointer; }
+  button:hover:not(:disabled) { background:#f0f0f0; }
+  button:disabled { opacity:0.5; cursor:not-allowed; }
+  input[type="number"], select { width:100%; box-sizing:border-box; }
+  .nav { display:flex; gap:12px; flex-wrap:wrap; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:#fff; }
+  .nav a { color:#2563eb; text-decoration:none; }
+  .nav a:hover { text-decoration:underline; }
+  #status { margin-top:10px; color:#555; font-size:.9rem; min-height:20px; }
+  .progress { margin-top:8px; }
+  .progress-bar { width:100%; height:6px; background:#e5e7eb; border-radius:3px; overflow:hidden; }
+  .progress-fill { height:100%; background:#3b82f6; transition:width 0.3s ease; }
+</style>
+
+<div class="wrap">
+  <div class="nav">
+    <a href="../">Home</a>
+    <span>·</span>
+    <a href="../simulator/">Simulator</a>
+    <span>·</span>
+    <a href="../bifurcation/">Bifurcation</a>
+    <span>·</span>
+    <a href="../heatmap/">Heatmap</a>
+    <span>·</span>
+    <a href="../contour/">Contour (g,β)</a>
+    <span>·</span>
+    <a href="../workbench/">Modification Workbench</a>
+  </div>
+
+  <div class="card">
+    <h2 style="margin:4px 0 10px;">(g, β) 無次元パラメータ空間 — 周期等高線図</h2>
+    <div style="display:flex; gap:16px; flex-wrap:wrap;">
+      <div style="flex:2 1 520px; min-width:420px;">
+        <canvas id="cv" width="1400" height="1200"></canvas>
+        <div id="status"></div>
+        <div class="progress" id="progressContainer" style="display:none;">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="flex:1 1 360px; min-width:320px;">
+        <!-- パラメータ設定 -->
+        <div class="section">
+          <h3 class="section-title">📊 グリッド設定</h3>
+          <div class="param-group">
+            <label for="gMin">g 最小値</label>
+            <input id="gMin" type="number" step="0.1" value="1.0">
+            <label for="gMax">g 最大値</label>
+            <input id="gMax" type="number" step="0.1" value="4.0">
+            <label for="gSteps">g 分割数</label>
+            <input id="gSteps" type="number" step="1" value="31">
+
+            <label for="betaMin">β 最小値</label>
+            <input id="betaMin" type="number" step="0.01" value="0.3">
+            <label for="betaMax">β 最大値</label>
+            <input id="betaMax" type="number" step="0.01" value="1.5">
+            <label for="betaSteps">β 分割数</label>
+            <input id="betaSteps" type="number" step="1" value="25">
+          </div>
+        </div>
+
+        <!-- 等高線設定 -->
+        <div class="section">
+          <h3 class="section-title">📈 等高線設定</h3>
+          <div class="param-group">
+            <label for="contourLevels">等高線レベル (カンマ区切り)</label>
+            <input id="contourLevels" type="text" value="30,45,60,75,90,120,150,180" style="grid-column:span 1;">
+            <label><input type="checkbox" id="autoLevels" checked> 自動調整</label>
+          </div>
+        </div>
+
+        <!-- シナリオ設定 -->
+        <div class="section">
+          <h3 class="section-title">🎯 シナリオ矢印</h3>
+          <div class="param-group">
+            <label><input type="checkbox" id="showScenarios" checked> シナリオ表示</label>
+            <span></span>
+            <label for="baseG">基準点 g₀</label>
+            <input id="baseG" type="number" step="0.1" value="2.5">
+            <label for="baseBeta">基準点 β₀</label>
+            <input id="baseBeta" type="number" step="0.01" value="0.8">
+          </div>
+          <div class="note" style="margin-top:8px; font-size:0.85rem;">
+            シナリオは仮想的な修飾効果を示します：<br>
+            ・軽度: (r_assoc=1.1, r_poly=0.9)<br>
+            ・中度: (r_assoc=1.2, r_poly=0.8)<br>
+            ・強度: (r_assoc=1.3, r_poly=0.7)
+          </div>
+        </div>
+
+        <!-- ベースパラメータ -->
+        <div class="section">
+          <h3 class="section-title">⚙️ ベースパラメータ</h3>
+          <div class="param-group">
+            <label for="pol">pol [nM]</label>
+            <input id="pol" type="number" step="0.01" value="3.7">
+            <label for="rec">rec [nM]</label>
+            <input id="rec" type="number" step="0.01" value="32.5">
+            <label for="G">G [nM]</label>
+            <input id="G" type="number" step="1" value="150">
+            <label for="k2">k₂ [min⁻¹]</label>
+            <input id="k2" type="number" step="0.0001" value="0.0031">
+            <label for="kN">kN [min⁻¹]</label>
+            <input id="kN" type="number" step="0.001" value="0.0210">
+            <label for="kP">kP [min⁻¹]</label>
+            <input id="kP" type="number" step="0.0001" value="0.0047">
+            <label for="KmP">KmP [nM]</label>
+            <input id="KmP" type="number" step="1" value="34">
+            <label for="N0">N₀ [nM]</label>
+            <input id="N0" type="number" step="0.1" value="10">
+            <label for="P0">P₀ [nM]</label>
+            <input id="P0" type="number" step="0.1" value="10">
+            <label for="t_end">t_end [min]</label>
+            <input id="t_end" type="number" step="100" value="3000">
+            <label for="dt">dt [min]</label>
+            <input id="dt" type="number" step="0.1" value="0.5">
+            <label for="tail">評価区間 (末尾%)</label>
+            <input id="tail" type="number" step="1" value="60">
+          </div>
+        </div>
+
+        <div class="buttons">
+          <button id="runBtn">🚀 等高線図を生成</button>
+          <button id="exportPngBtn" disabled>💾 PNG保存</button>
+          <button id="exportCsvBtn" disabled>📊 CSV保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 説明セクション -->
+  <div class="card" style="margin-top:8px;">
+    <h3 style="margin:0 0 8px;">無次元パラメータ空間の等高線図</h3>
+    <h4 style="margin:0 0 6px;">このツールについて</h4>
+    <p>
+      このツールは、無次元パラメータ <strong>g</strong> と <strong>β</strong> の2次元空間で振動周期を等高線として可視化します。
+    </p>
+    <p>
+      <strong>g</strong> と <strong>β</strong> は以下のように定義されます：
+    </p>
+    <ul style="line-height:1.8;">
+      <li><strong>g</strong> = k₁ × G / (k₂ × KmP) — 被食者生成効率</li>
+      <li><strong>β</strong> = b × k₂ × KmP² / k₁ — 飽和強度</li>
+    </ul>
+    <p>
+      アミノ酸修飾による <code>r_assoc</code>, <code>r_poly</code>, <code>r_nick</code> の変化は、以下のように g と β に伝播します：
+    </p>
+    <ul style="line-height:1.8;">
+      <li>g' = g × (r_assoc × r_poly / r_nick)</li>
+      <li>β' = β × (1 / r_poly)</li>
+    </ul>
+    <p>
+      シナリオ矢印は、仮想的な修飾によって系がどの方向に移動するかを示します。
+      これにより、実験条件の最適化や周期延長のメカニズム理解に役立ちます。
+    </p>
+  </div>
+</div>
+
+<script type="module" src="./contour.js"></script>

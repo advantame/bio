@@ -53,6 +53,18 @@ function applyAxisValue(params, name, value){
     params.b *= rAssoc;
     return { rAssoc };
   }
+  if (name === 'poly_r') {
+    const rPoly = Math.max(value, 0.01);
+    params.k1 *= rPoly;
+    // b は不変
+    return { rPoly };
+  }
+  if (name === 'nick_r') {
+    const rNick = Math.max(value, 0.01);
+    params.k1 /= rNick;
+    params.b /= rNick;
+    return { rNick };
+  }
   params[name] = value;
   return {};
 }
@@ -61,6 +73,8 @@ function axisLabel(name){
   switch (name) {
     case 'assoc_ddg': return 'ΔΔG_assoc [kcal/mol]';
     case 'assoc_r': return 'r_assoc';
+    case 'poly_r': return 'r_poly';
+    case 'nick_r': return 'r_nick';
     case 'k1': return 'k1';
     case 'N0': return 'N0 [nM]';
     case 'P0': return 'P0 [nM]';
@@ -624,6 +638,10 @@ function updateParameterAvailability(){
     // assoc_ddg and assoc_r affect k1 and b, so disable both
     'assoc_ddg': ['k1', 'b'],
     'assoc_r': ['k1', 'b'],
+    // poly_r affects k1 only
+    'poly_r': 'k1',
+    // nick_r affects k1 and b
+    'nick_r': ['k1', 'b'],
   };
 
   // Reset all base parameters to enabled

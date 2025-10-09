@@ -106,7 +106,8 @@ A Rust + WebAssembly + Canvas web app to explore a DNA-based predator–prey osc
 ### Legacy Standalone Pages (Still Accessible)
 - Simulator (`/simulator/`) — Physical parameters, time series, phase portrait
 - Bifurcation (`/bifurcation/`) — 1D parameter sweep with presets
-- Heatmap (`/heatmap/`) — 2D parameter grid with turbo colormap
+- Heatmap (`/heatmap/`) — 2D parameter grid with turbo colormap (now supports `r_poly` and `r_nick` as axis parameters)
+- Contour (`/contour/`) — (g, β) dimensionless parameter space with period contours and scenario arrows
 - All pages support `?preset=...&active=...&overlays=...` deep linking
 
 ### Defaults and Presets (from SI Table S5, PP1 optimized / Fig.2 & S11)
