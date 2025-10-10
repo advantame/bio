@@ -28,6 +28,7 @@ const presetSel = document.getElementById('preset');
 const applyPresetBtn = document.getElementById('applyPreset');
 const presetDesc = document.getElementById('presetDesc');
 const videoPlayer = document.getElementById('videoPlayer');
+const shareBtn = document.getElementById('shareBtn');
 
 const BASELINE_COLOR = '#1d4ed8';
 const ACTIVE_COLOR = '#ef4444';
@@ -646,7 +647,7 @@ async function generateVideoFrom3DGrid(frames, nx, ny, xMin, xMax, yMin, yMax,
 function drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel,
   dmin, dmax, metricUnit, tLabel, tMin, tMax, tVal, frameIdx, totalFrames) {
   const W = cv.width, H = cv.height;
-  const L = 80, R = 120, T = 50, B = 90; // Increased bottom margin for timeline
+  const L = 80, R = 120, T = 80, B = 70; // Increased top margin for timeline
 
   ctx.save();
   ctx.fillStyle = '#fff';
@@ -701,24 +702,8 @@ function drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel,
   ctx.textBaseline = 'bottom';
   ctx.fillText(roundSmart(dmin) + ' ' + metricUnit, lgX + lgW + 6, lgY + lgH);
 
-  // X-axis label
-  ctx.fillStyle = '#111827';
-  ctx.font = '13px system-ui';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'bottom';
-  ctx.fillText(xLabel, L + (W - L - R) / 2, H - B + 70);
-
-  // Y-axis label
-  ctx.save();
-  ctx.translate(16, T + (H - T - B) / 2);
-  ctx.rotate(-Math.PI / 2);
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.fillText(yLabel, 0, 0);
-  ctx.restore();
-
-  // T-axis timeline at bottom
-  const timelineY = H - B + 20;
+  // T-axis timeline at top
+  const timelineY = 30;
   const timelineLeft = L + 60;
   const timelineRight = W - R - 60;
   const timelineWidth = timelineRight - timelineLeft;
@@ -735,31 +720,31 @@ function drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel,
   ctx.fillStyle = '#64748b';
   ctx.font = '11px system-ui';
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
+  ctx.textBaseline = 'bottom';
 
   // Start tick
   ctx.beginPath();
   ctx.moveTo(timelineLeft, timelineY - 4);
   ctx.lineTo(timelineLeft, timelineY + 4);
   ctx.stroke();
-  ctx.fillText(roundSmart(tMin), timelineLeft, timelineY + 8);
+  ctx.fillText(roundSmart(tMin), timelineLeft, timelineY - 6);
 
   // End tick
   ctx.beginPath();
   ctx.moveTo(timelineRight, timelineY - 4);
   ctx.lineTo(timelineRight, timelineY + 4);
   ctx.stroke();
-  ctx.fillText(roundSmart(tMax), timelineRight, timelineY + 8);
+  ctx.fillText(roundSmart(tMax), timelineRight, timelineY - 6);
 
-  // Current position marker (triangle)
+  // Current position marker (triangle pointing down)
   const tProgress = (tVal - tMin) / (tMax - tMin || 1);
   const markerX = timelineLeft + tProgress * timelineWidth;
 
   ctx.fillStyle = '#ef4444';
   ctx.beginPath();
-  ctx.moveTo(markerX, timelineY - 10);
-  ctx.lineTo(markerX - 6, timelineY - 18);
-  ctx.lineTo(markerX + 6, timelineY - 18);
+  ctx.moveTo(markerX, timelineY + 10);
+  ctx.lineTo(markerX - 6, timelineY + 2);
+  ctx.lineTo(markerX + 6, timelineY + 2);
   ctx.closePath();
   ctx.fill();
 
@@ -767,8 +752,8 @@ function drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel,
   ctx.fillStyle = '#111827';
   ctx.font = 'bold 12px system-ui';
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'bottom';
-  ctx.fillText(`${tLabel} = ${roundSmart(tVal)}`, markerX, timelineY - 20);
+  ctx.textBaseline = 'top';
+  ctx.fillText(`${tLabel} = ${roundSmart(tVal)}`, markerX, timelineY + 12);
 
   // Timeline label
   ctx.fillStyle = '#64748b';
@@ -776,6 +761,52 @@ function drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel,
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText(tLabel, timelineLeft - 50, timelineY);
+
+  // X-axis label
+  ctx.fillStyle = '#111827';
+  ctx.font = '13px system-ui';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(xLabel, L + (W - L - R) / 2, H - 8);
+
+  // Y-axis label
+  ctx.save();
+  ctx.translate(16, T + (H - T - B) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(yLabel, 0, 0);
+  ctx.restore();
+
+  // X-axis tick marks
+  const xTicks = niceAxis(xMin, xMax, 6);
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#64748b';
+  ctx.font = '11px system-ui';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (const xv of xTicks.ticks) {
+    const x = xOf(xv);
+    ctx.beginPath();
+    ctx.moveTo(x, H - B);
+    ctx.lineTo(x, H - B + 5);
+    ctx.stroke();
+    ctx.fillText(xv.toFixed(xTicks.decimals), x, H - B + 7);
+  }
+
+  // Y-axis tick marks
+  const yTicks = niceAxis(yMin, yMax, 6);
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (const yv of yTicks.ticks) {
+    const y = yOf(yv);
+    ctx.beginPath();
+    ctx.moveTo(L - 5, y);
+    ctx.lineTo(L, y);
+    ctx.stroke();
+    ctx.fillText(yv.toFixed(yTicks.decimals), L - 7, y);
+  }
 }
 
 // Experimental: Use FFT for period detection (set to true to enable)
@@ -1001,13 +1032,35 @@ function applyQueryParams(){
     applyPresetValue('balance');
   }
 
-  const numericKeys = ['xParam','xMin','xMax','xSteps','yParam','yMin','yMax','ySteps','metric','t_end','dt','tail'];
-  numericKeys.forEach((key) => {
+  // Load all heatmap and simulation parameters
+  const allKeys = [
+    'xParam','xMin','xMax','xSteps',
+    'yParam','yMin','yMax','ySteps',
+    'metric','t_end','dt','tail',
+    'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0'
+  ];
+  allKeys.forEach((key) => {
     if (params.has(key)) {
       const val = params.get(key);
       if (val !== null) setVal(key, val);
     }
   });
+
+  // Load T-axis parameters if enabled
+  if (params.get('enableTimeAxis') === 'true') {
+    el.enableTimeAxis.checked = true;
+    el.tParam.disabled = false;
+    el.tMin.disabled = false;
+    el.tMax.disabled = false;
+    el.tSteps.disabled = false;
+    el.videoDuration.disabled = false;
+
+    if (params.has('tParam')) setVal('tParam', params.get('tParam'));
+    if (params.has('tMin')) setVal('tMin', params.get('tMin'));
+    if (params.has('tMax')) setVal('tMax', params.get('tMax'));
+    if (params.has('tSteps')) setVal('tSteps', params.get('tSteps'));
+    if (params.has('videoDuration')) setVal('videoDuration', params.get('videoDuration'));
+  }
 
   const activeId = params.get('active');
   if (activeId) setActiveModificationId(activeId);
@@ -1087,6 +1140,68 @@ el.enableTimeAxis.addEventListener('change', () => {
   el.tMax.disabled = !enabled;
   el.tSteps.disabled = !enabled;
   el.videoDuration.disabled = !enabled;
+});
+
+// Share button handler
+shareBtn.addEventListener('click', async () => {
+  const params = new URLSearchParams();
+
+  // Heatmap parameters
+  params.set('xParam', el.xParam.value);
+  params.set('xMin', el.xMin.value);
+  params.set('xMax', el.xMax.value);
+  params.set('xSteps', el.xSteps.value);
+
+  params.set('yParam', el.yParam.value);
+  params.set('yMin', el.yMin.value);
+  params.set('yMax', el.yMax.value);
+  params.set('ySteps', el.ySteps.value);
+
+  params.set('metric', el.metric.value);
+  params.set('tail', el.tail.value);
+  params.set('t_end', el.t_end.value);
+  params.set('dt', el.dt.value);
+
+  // T-axis parameters (if enabled)
+  if (el.enableTimeAxis.checked) {
+    params.set('enableTimeAxis', 'true');
+    params.set('tParam', el.tParam.value);
+    params.set('tMin', el.tMin.value);
+    params.set('tMax', el.tMax.value);
+    params.set('tSteps', el.tSteps.value);
+    params.set('videoDuration', el.videoDuration.value);
+  }
+
+  // Base parameters
+  params.set('pol', el.pol.value);
+  params.set('rec', el.rec.value);
+  params.set('G', el.G.value);
+  params.set('k1', el.k1.value);
+  params.set('k2', el.k2.value);
+  params.set('kN', el.kN.value);
+  params.set('kP', el.kP.value);
+  params.set('b', el.b.value);
+  params.set('KmP', el.KmP.value);
+  params.set('N0', el.N0.value);
+  params.set('P0', el.P0.value);
+
+  // Generate URL
+  const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+
+  // Copy to clipboard
+  try {
+    await navigator.clipboard.writeText(url);
+    const originalText = shareBtn.textContent;
+    shareBtn.textContent = '✓ URLをコピーしました！';
+    shareBtn.style.background = '#22c55e';
+    setTimeout(() => {
+      shareBtn.textContent = originalText;
+      shareBtn.style.background = '';
+    }, 2000);
+  } catch (err) {
+    alert('URLのコピーに失敗しました: ' + url);
+    console.error('Failed to copy:', err);
+  }
 });
 
 initDefaults();
