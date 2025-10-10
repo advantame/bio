@@ -1,4 +1,4 @@
-import { initWasm, runSimulationPhysical } from "../core.js";
+import { initWasm, runSimulationAndEvaluate } from "../core.js";
 
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d', { alpha: false });
@@ -24,25 +24,8 @@ let contourData = null;
 
 function num(id) { return parseFloat(el[id].value); }
 
-// 周期を評価する関数 (heatmap.jsと同じロジック)
-function evaluatePeriod(N, P, startIdx, dt) {
-  const len = N.length;
-  if (len <= startIdx) return NaN;
-
-  const peaks = [];
-  for (let i = Math.max(startIdx + 1, 1); i < len - 1; i++) {
-    const a = N[i - 1], b = N[i], c = N[i + 1];
-    if (b > a && b > c) peaks.push(i);
-  }
-
-  if (peaks.length >= 2) {
-    let sum = 0;
-    for (let i = 1; i < peaks.length; i++) sum += (peaks[i] - peaks[i - 1]);
-    const meanStep = sum / (peaks.length - 1);
-    return meanStep * (dt || 1);
-  }
-  return NaN;
-}
+// 周期評価はWASM側で最適化された実装を使用
+// （evaluatePeriod関数は削除し、runSimulationAndEvaluateを使用）
 
 // (g, β) → (k1, b) の逆算
 function gbToK1B(g, beta, baseParams) {
@@ -71,7 +54,8 @@ async function generateContourData() {
     N0: num('N0'),
     P0: num('P0'),
     t_end_min: t_end,
-    dt_min: dt
+    dt_min: dt,
+    mod_factor: 1.0
   };
 
   const grid = [];
@@ -95,9 +79,8 @@ async function generateContourData() {
       const params = { ...baseParams, k1, b };
 
       try {
-        const { N, P } = runSimulationPhysical(params);
-        const startIdx = Math.floor(N.length * (100 - tail) / 100);
-        const period = evaluatePeriod(N, P, startIdx, dt);
+        // WASM最適化版の周期評価を使用
+        const period = runSimulationAndEvaluate(params, 'period', tail);
 
         grid.push({ g, beta, k1, b, period: Number.isFinite(period) ? period : NaN });
       } catch (err) {
