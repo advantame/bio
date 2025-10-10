@@ -408,9 +408,36 @@ async function runTimeAxisAnimation() {
 
   status.textContent = `3D空間シミュレーション実行中... (${nx}×${ny}×${nt} = ${totalSims}回)`;
 
-  // Build 3D grid: for each T value, compute X×Y heatmap
+  // Performance timing
+  const startTime = performance.now();
+
+  // Use parallel execution
+  const USE_PARALLEL = true;
+  const numWorkers = USE_PARALLEL ? (navigator.hardwareConcurrency || 4) : 1;
+
   const frames = [];
 
+  if (USE_PARALLEL && numWorkers > 1) {
+    // === PARALLEL EXECUTION ===
+    await run3DGridParallel(frames, bp, xParam, yParam, tParam, xMin, xMax, yMin, yMax, tMin, tMax, nx, ny, nt, metric, tailPct, status);
+  } else {
+    // === SEQUENTIAL EXECUTION ===
+    await run3DGridSequential(frames, bp, xParam, yParam, tParam, xMin, xMax, yMin, yMax, tMin, tMax, nx, ny, nt, metric, tailPct, status);
+  }
+
+  // Report performance
+  const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+  console.log(`✅ 3D grid completed in ${elapsed}s (${nx}×${ny}×${nt} = ${totalSims} cells)`);
+  console.log(`   Average: ${(parseFloat(elapsed) / totalSims * 1000).toFixed(2)}ms per cell`);
+  console.log(`   Mode: ${USE_PARALLEL && numWorkers > 1 ? `Parallel (${numWorkers} workers)` : 'Sequential'}`);
+
+  status.textContent = '動画生成中...';
+  await generateVideoFrom3DGrid(frames, nx, ny, xMin, xMax, yMin, yMax,
+    axisLabel(xParam), axisLabel(yParam), axisLabel(tParam), metric, videoDuration);
+}
+
+// Sequential execution for 3D grid
+async function run3DGridSequential(frames, bp, xParam, yParam, tParam, xMin, xMax, yMin, yMax, tMin, tMax, nx, ny, nt, metric, tailPct, status) {
   for (let t = 0; t < nt; t++) {
     const tVal = tMin + (tMax - tMin) * (t / (nt - 1));
     const grid = new Float32Array(nx * ny);
@@ -438,14 +465,120 @@ async function runTimeAxisAnimation() {
 
     if (t % Math.max(1, Math.floor(nt / 10)) === 0) {
       const progress = Math.floor((t / nt) * 100);
-      status.textContent = `3D空間シミュレーション実行中... ${progress}% (${t * nx * ny}/${totalSims})`;
+      status.textContent = `3D空間シミュレーション実行中... ${progress}% (${t * nx * ny}/${nx * ny * nt})`;
       await new Promise(r => setTimeout(r, 0));
     }
   }
+}
 
-  status.textContent = '動画生成中...';
-  await generateVideoFrom3DGrid(frames, nx, ny, xMin, xMax, yMin, yMax,
-    axisLabel(xParam), axisLabel(yParam), axisLabel(tParam), metric, videoDuration);
+// Parallel execution for 3D grid using Web Workers
+async function run3DGridParallel(frames, bp, xParam, yParam, tParam, xMin, xMax, yMin, yMax, tMin, tMax, nx, ny, nt, metric, tailPct, status) {
+  // Build list of all cells to compute
+  const allCells = [];
+  for (let t = 0; t < nt; t++) {
+    const tVal = tMin + (tMax - tMin) * (t / (nt - 1));
+    for (let j = 0; j < ny; j++) {
+      const yVal = yMin + (yMax - yMin) * (j / (ny - 1));
+      for (let i = 0; i < nx; i++) {
+        const xVal = xMin + (xMax - xMin) * (i / (nx - 1));
+
+        // Build params with all three axes
+        const { params } = buildParamsForAxes(bp,
+          { name: xParam, value: xVal },
+          { name: yParam, value: yVal }
+        );
+        // Apply T-axis
+        applyAxisValue(params, tParam, tVal);
+
+        allCells.push({
+          i, j, t, tVal,
+          params
+        });
+      }
+    }
+  }
+
+  const totalCells = allCells.length;
+  const numWorkers = navigator.hardwareConcurrency || 4;
+  const workers = [];
+
+  // Create workers
+  for (let w = 0; w < numWorkers; w++) {
+    workers.push(new Worker('./heatmap-worker.js', { type: 'module' }));
+  }
+
+  // Initialize frame grids
+  for (let t = 0; t < nt; t++) {
+    const tVal = tMin + (tMax - tMin) * (t / (nt - 1));
+    frames.push({ grid: new Float32Array(nx * ny).fill(NaN), tVal });
+  }
+
+  // Distribute cells across workers
+  const cellsPerWorker = Math.ceil(totalCells / numWorkers);
+  const promises = workers.map((worker, workerIdx) => {
+    const start = workerIdx * cellsPerWorker;
+    const end = Math.min(start + cellsPerWorker, totalCells);
+    const workerCells = allCells.slice(start, end).map((cell, idx) => ({
+      ...cell,
+      cellIndex: start + idx
+    }));
+
+    return new Promise((resolve, reject) => {
+      worker.onmessage = (e) => {
+        const { workerId, results, error } = e.data;
+
+        if (error) {
+          reject(new Error(error));
+          return;
+        }
+
+        // Fill grids with results
+        for (const { i, j, value, cellIndex } of results) {
+          const cellData = cellIndex !== undefined ? allCells[cellIndex] : null;
+          if (cellData) {
+            const { t } = cellData;
+            frames[t].grid[j * nx + i] = Number.isFinite(value) ? value : NaN;
+          }
+        }
+
+        // Update progress
+        completed += results.length;
+
+        resolve(results.length);
+      };
+
+      worker.onerror = (err) => {
+        reject(new Error(`Worker ${workerIdx} error: ${err.message}`));
+      };
+
+      // Send work to worker
+      worker.postMessage({
+        workerId: workerIdx,
+        cells: workerCells,
+        metric,
+        tailPct
+      });
+    });
+  });
+
+  // Track progress
+  let completed = 0;
+  const updateInterval = setInterval(() => {
+    const progress = Math.floor((completed / totalCells) * 100);
+    status.textContent = `3D空間シミュレーション実行中... ${progress}% (${numWorkers} workers)`;
+  }, 100);
+
+  try {
+    await Promise.all(promises);
+    clearInterval(updateInterval);
+    status.textContent = `並列計算完了 (${completed}/${totalCells} cells)`;
+  } catch (error) {
+    clearInterval(updateInterval);
+    status.textContent = `Error: ${error.message}`;
+    console.error('Parallel execution failed:', error);
+  } finally {
+    workers.forEach(w => w.terminate());
+  }
 }
 
 // Generate video from 3D grid data
