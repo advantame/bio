@@ -30,7 +30,7 @@ if (variantSelect) variantSelect.disabled = true;
 const ids = [
   'xParam','xMin','xMax','xSteps',
   'yParam','yMin','yMax','ySteps',
-  'metric','t_end','dt','tail',
+  'metric','t_end','dt','tail','useFFT',
   'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0',
   'enableTimeAxis','tParam','tMin','tMax','tSteps','videoDuration'
 ];
@@ -962,10 +962,7 @@ function drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel,
   }
 }
 
-// Experimental: Use FFT for period detection (set to true to enable)
-// Change in browser console: USE_FFT_PERIOD = true
-let USE_FFT_PERIOD = false;
-
+// FFT period detection - controlled by GUI checkbox (id="useFFT")
 function evaluateMetric(series, startIdx, metric, dt){
   const len = series.length;
   if (len <= startIdx) return NaN;
@@ -979,8 +976,9 @@ function evaluateMetric(series, startIdx, metric, dt){
     return pmax - pmin;
   }
   if (metric === 'period'){
-    // Choose between FFT and peak-counting methods
-    if (USE_FFT_PERIOD) {
+    // Choose between FFT and peak-counting methods based on GUI checkbox
+    const useFFT = el.useFFT && el.useFFT.checked;
+    if (useFFT) {
       return evaluatePeriodFFT(series, startIdx, dt);
     } else {
       return evaluatePeriodPeaks(series, startIdx, dt);
@@ -1199,6 +1197,11 @@ function applyQueryParams(){
     }
   });
 
+  // Load FFT option
+  if (params.get('useFFT') === 'true') {
+    el.useFFT.checked = true;
+  }
+
   // Load T-axis parameters if enabled
   if (params.get('enableTimeAxis') === 'true') {
     el.enableTimeAxis.checked = true;
@@ -1285,6 +1288,20 @@ function updateParameterAvailability(){
 el.xParam.addEventListener('change', updateParameterAvailability);
 el.yParam.addEventListener('change', updateParameterAvailability);
 
+// Metric change handler - enable/disable FFT checkbox
+el.metric.addEventListener('change', () => {
+  const isPeriodMetric = el.metric.value === 'period';
+  el.useFFT.disabled = !isPeriodMetric;
+  if (!isPeriodMetric) {
+    el.useFFT.checked = false; // Uncheck when switching to amplitude
+  }
+});
+
+// Initialize FFT checkbox state based on current metric
+if (el.useFFT && el.metric) {
+  el.useFFT.disabled = el.metric.value !== 'period';
+}
+
 // T-axis (3rd axis) checkbox handler
 el.enableTimeAxis.addEventListener('change', () => {
   const enabled = el.enableTimeAxis.checked;
@@ -1314,6 +1331,11 @@ shareBtn.addEventListener('click', async () => {
   params.set('tail', el.tail.value);
   params.set('t_end', el.t_end.value);
   params.set('dt', el.dt.value);
+
+  // FFT option (if enabled)
+  if (el.useFFT && el.useFFT.checked) {
+    params.set('useFFT', 'true');
+  }
 
   // T-axis parameters (if enabled)
   if (el.enableTimeAxis.checked) {
