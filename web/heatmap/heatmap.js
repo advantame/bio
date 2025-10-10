@@ -800,7 +800,7 @@ async function generateVideoFrom3DGrid(frames, nx, ny, xMin, xMax, yMin, yMax,
 function drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel,
   dmin, dmax, metricUnit, tLabel, tMin, tMax, tVal, frameIdx, totalFrames) {
   const W = cv.width, H = cv.height;
-  const L = 80, R = 120, T = 80, B = 70; // Increased top margin for timeline
+  const L = 80, R = 120, T = 120, B = 80; // Square plot area: 900-80-120=700, 900-120-80=700
 
   ctx.save();
   ctx.fillStyle = '#fff';
@@ -856,7 +856,7 @@ function drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel,
   ctx.fillText(roundSmart(dmin) + ' ' + metricUnit, lgX + lgW + 6, lgY + lgH);
 
   // T-axis timeline at top
-  const timelineY = 30;
+  const timelineY = 50;
   const timelineLeft = L + 60;
   const timelineRight = W - R - 60;
   const timelineWidth = timelineRight - timelineLeft;
@@ -1365,7 +1365,7 @@ if (variantSelect) variantSelect.addEventListener('change', renderHeatmapSelecti
 
 function drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, metric, variantInfo){
   const W = cv.width, H = cv.height;
-  const L = 80, R = 120, T = 50, B = 70; // leave room for legend on right
+  const L = 80, R = 120, T = 100, B = 100; // Square plot area: 900-80-120=700, 900-100-100=700
   ctx.save(); ctx.fillStyle = '#fff'; ctx.fillRect(0,0,W,H); ctx.restore();
 
   // Compute data range ignoring NaN
