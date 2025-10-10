@@ -41,6 +41,7 @@
     <div style="display:flex; gap:16px; flex-wrap:wrap;">
       <div style="flex:2 1 520px; min-width:420px;">
         <canvas id="cv" width="1200" height="560"></canvas>
+        <video id="videoPlayer" controls style="display:none; width:100%; max-height:560px; border:1px solid var(--line); border-radius:10px; margin-top:12px;"></video>
         <div id="status" class="note"></div>
         <div class="note" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           表示:
@@ -125,6 +126,17 @@
             <label for="dt">時間刻み幅 [min]</label>
             <input id="dt" type="number" step="0.1" value="1">
           </div>
+
+          <div class="param-group" style="margin-top:16px; border-top:1px solid #e5e7eb; padding-top:12px;">
+            <label for="enableTimeAxis"><strong>時間軸動画生成</strong></label>
+            <input id="enableTimeAxis" type="checkbox">
+            <label for="tMin">　開始時刻 [min]</label>
+            <input id="tMin" type="number" step="10" value="0" disabled>
+            <label for="tMax">　終了時刻 [min]</label>
+            <input id="tMax" type="number" step="10" value="2600" disabled>
+            <label for="tSteps">　フレーム数</label>
+            <input id="tSteps" type="number" step="1" value="50" disabled>
+          </div>
         </div>
 
         <!-- ベースパラメータ -->
@@ -172,6 +184,9 @@
     </p>
     <p>
       例えば、横軸に鋳型DNA濃度 <code>G</code>、縦軸にアミノ酸修飾による自由エネルギー差 <code>ΔΔG<sub>assoc</sub></code> を設定すると、修飾強度と鋳型濃度の組み合わせごとに振動周期がどう変化するかを色で俯瞰できます。
+    </p>
+    <p>
+      <strong>🎬 時間軸動画生成機能:</strong> 「時間軸動画生成」をONにすると、X-Yパラメータ空間での<strong>時系列変化</strong>を動画として生成できます。各グリッドポイントで時系列シミュレーションを実行し、指定した時間範囲でのヒートマップの変化を動画で確認できます。例えば、N濃度の時間変化をパラメータ空間全体で可視化することで、振動の開始タイミングや位相のずれなどを直感的に理解できます。
     </p>
     <p>
       <em>文脈:</em> あなたの最終目標は「DNAへのアミノ酸結合が振動の波長をどう変えるか」を明らかにすることです。このツールはその問いに最も直接的に答えるためのものです。このヒートマップを使えば、「アミノ酸修補飾効果(<code>k₁</code>の低下)は、<code>G</code>濃度が低い領域では周期をわずかに伸ばすだけだが、<code>G</code>濃度が高い領域では周期を劇的に変化させる」といった、<strong>パラメータ間の複雑な相互作用</strong>を明らかにすることができます。これにより、シミュレーションから「xxという条件下でyyという結果が得られるはずだ」という、実験的に検証可能な<strong>具体的な仮説</strong>を生み出すことが可能になります。

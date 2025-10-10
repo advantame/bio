@@ -20,12 +20,14 @@ const ids = [
   'xParam','xMin','xMax','xSteps',
   'yParam','yMin','yMax','ySteps',
   'metric','t_end','dt','tail',
-  'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0'
+  'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0',
+  'enableTimeAxis','tMin','tMax','tSteps'
 ];
 const el = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 const presetSel = document.getElementById('preset');
 const applyPresetBtn = document.getElementById('applyPreset');
 const presetDesc = document.getElementById('presetDesc');
+const videoPlayer = document.getElementById('videoPlayer');
 
 const BASELINE_COLOR = '#1d4ed8';
 const ACTIVE_COLOR = '#ef4444';
@@ -122,8 +124,16 @@ runBtn.addEventListener('click', async () => {
   variantSelect.innerHTML = '';
   variantResults = [];
   gridContext = null;
-  status.textContent = 'Running grid...';
   await initWasm();
+
+  // Check if time axis mode is enabled
+  if (el.enableTimeAxis.checked) {
+    await runTimeAxisAnimation();
+    runBtn.disabled = false;
+    return;
+  }
+
+  status.textContent = 'Running grid...';
 
   // Performance timing
   const startTime = performance.now();
@@ -365,6 +375,207 @@ async function runHeatmapParallel(variantMap, variantStyles, previewVariants, bp
     // Cleanup workers
     workers.forEach(w => w.terminate());
   }
+}
+
+// Time axis animation function
+async function runTimeAxisAnimation() {
+  const xParam = el.xParam.value;
+  const yParam = el.yParam.value;
+  if (xParam === yParam) {
+    status.textContent = 'XとYのパラメータは別にしてください。';
+    return;
+  }
+
+  const xMin = num('xMin'), xMax = num('xMax');
+  const yMin = num('yMin'), yMax = num('yMax');
+  const nx = Math.max(2, Math.floor(num('xSteps')));
+  const ny = Math.max(2, Math.floor(num('ySteps')));
+  const tMin = num('tMin'), tMax = num('tMax');
+  const tSteps = Math.max(2, Math.floor(num('tSteps')));
+  const bp = baseParams();
+
+  status.textContent = `時系列シミュレーション実行中... (${nx}×${ny} グリッド)`;
+
+  // Run simulations for all grid points and store time series
+  const gridData = [];
+  for (let j = 0; j < ny; j++) {
+    const yVal = yMin + (yMax - yMin) * (j / (ny - 1));
+    for (let i = 0; i < nx; i++) {
+      const xVal = xMin + (xMax - xMin) * (i / (nx - 1));
+      const { params } = buildParamsForAxes(bp, { name: xParam, value: xVal }, { name: yParam, value: yVal });
+
+      // Run time series simulation
+      const { N, P } = runSimulationPhysical(params);
+      gridData.push({ i, j, N, P });
+    }
+
+    if (j % 5 === 0) {
+      status.textContent = `時系列シミュレーション実行中... ${j + 1}/${ny}`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+
+  status.textContent = '動画生成中...';
+  await generateVideoFromTimeSeries(gridData, nx, ny, xMin, xMax, yMin, yMax,
+    axisLabel(xParam), axisLabel(yParam), tMin, tMax, tSteps, bp.dt_min);
+}
+
+// Generate video from time series data
+async function generateVideoFromTimeSeries(gridData, nx, ny, xMin, xMax, yMin, yMax,
+  xLabel, yLabel, tMin, tMax, tSteps, dt) {
+
+  const frames = [];
+  const totalTimePoints = gridData[0].N.length;
+  const tMinIdx = Math.floor(tMin / dt);
+  const tMaxIdx = Math.min(Math.floor(tMax / dt), totalTimePoints - 1);
+
+  // Generate frames at specified time steps
+  for (let t = 0; t < tSteps; t++) {
+    const timeIdx = Math.floor(tMinIdx + (tMaxIdx - tMinIdx) * (t / (tSteps - 1)));
+    const currentTime = timeIdx * dt;
+
+    // Build grid for this time point (using N concentration)
+    const grid = new Float32Array(nx * ny);
+    for (const { i, j, N } of gridData) {
+      grid[j * nx + i] = N[timeIdx];
+    }
+
+    frames.push({ grid, time: currentTime });
+
+    if (t % 10 === 0) {
+      status.textContent = `フレーム生成中... ${t + 1}/${tSteps}`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+  }
+
+  // Record video using MediaRecorder
+  status.textContent = '動画エンコード中...';
+  const stream = cv.captureStream(30); // 30 fps
+  const mediaRecorder = new MediaRecorder(stream, {
+    mimeType: 'video/webm;codecs=vp9',
+    videoBitsPerSecond: 5000000
+  });
+
+  const chunks = [];
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) chunks.push(e.data);
+  };
+
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(chunks, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    videoPlayer.src = url;
+    videoPlayer.style.display = 'block';
+    cv.style.display = 'none';
+    status.textContent = `動画生成完了 (${tSteps} フレーム, ${(tMax - tMin).toFixed(0)}分間)`;
+  };
+
+  mediaRecorder.start();
+
+  // Render each frame
+  for (let i = 0; i < frames.length; i++) {
+    const { grid, time } = frames[i];
+
+    // Compute data range
+    let dmin = +Infinity, dmax = -Infinity;
+    for (const v of grid) {
+      if (!Number.isFinite(v)) continue;
+      if (v < dmin) dmin = v;
+      if (v > dmax) dmax = v;
+    }
+    if (!Number.isFinite(dmin) || !Number.isFinite(dmax) || dmax === dmin) {
+      dmin = 0; dmax = 1;
+    }
+
+    // Draw frame
+    drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel,
+      dmin, dmax, `N濃度 @ t = ${time.toFixed(1)} min`);
+
+    await new Promise(r => setTimeout(r, 50)); // 20 fps playback
+  }
+
+  mediaRecorder.stop();
+}
+
+// Draw a single heatmap frame (simplified version)
+function drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, dmin, dmax, title) {
+  const W = cv.width, H = cv.height;
+  const L = 80, R = 120, T = 50, B = 70;
+
+  ctx.save();
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+
+  const xOf = (v) => L + ((v - xMin) / (xMax - xMin || 1)) * (W - L - R);
+  const yOf = (v) => H - B - ((v - yMin) / (yMax - yMin || 1)) * (H - T - B);
+
+  // Draw cells
+  for (let j = 0; j < ny; j++) {
+    const y0 = yOf(yMin + (yMax - yMin) * (j / (ny - 1)));
+    const y1 = yOf(yMin + (yMax - yMin) * ((j + 1) / (ny - 1)));
+    const h = y1 - y0;
+    for (let i = 0; i < nx; i++) {
+      const x0 = xOf(xMin + (xMax - xMin) * (i / (nx - 1)));
+      const x1 = xOf(xMin + (xMax - xMin) * ((i + 1) / (nx - 1)));
+      const w = x1 - x0;
+      const v = grid[j * nx + i];
+      if (Number.isFinite(v)) {
+        const t = (v - dmin) / (dmax - dmin || 1);
+        const [r, g, b] = turbo(t);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+      } else {
+        ctx.fillStyle = '#cbd5e1';
+      }
+      ctx.fillRect(x0, Math.min(y0, y1), w, Math.abs(h));
+    }
+  }
+
+  // Border
+  ctx.strokeStyle = '#e5e7eb';
+  ctx.strokeRect(L, T, W - L - R, H - T - B);
+
+  // Legend (color bar)
+  const lgX = W - R + 40, lgY = T + 10, lgW = 16, lgH = H - T - B - 40;
+  for (let y = 0; y < lgH; y++) {
+    const t = 1 - y / (lgH - 1);
+    const [r, g, b] = turbo(t);
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(lgX, lgY + y, lgW, 1);
+  }
+  ctx.strokeStyle = '#334155';
+  ctx.strokeRect(lgX, lgY, lgW, lgH);
+
+  // Legend labels
+  ctx.fillStyle = '#0f172a';
+  ctx.font = '12px system-ui';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText(roundSmart(dmax) + ' nM', lgX + lgW + 6, lgY);
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(roundSmart(dmin) + ' nM', lgX + lgW + 6, lgY + lgH);
+
+  // Axis labels
+  ctx.fillStyle = '#111827';
+  ctx.font = '13px system-ui';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(xLabel, L + (W - L - R) / 2, H - 8);
+
+  ctx.save();
+  ctx.translate(16, T + (H - T - B) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(yLabel, 0, 0);
+  ctx.restore();
+
+  // Title
+  ctx.fillStyle = '#111827';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.font = '16px system-ui';
+  ctx.fillText(title, L + (W - L - R) / 2, 12);
 }
 
 // Experimental: Use FFT for period detection (set to true to enable)
@@ -667,6 +878,19 @@ function updateParameterAvailability(){
 
 el.xParam.addEventListener('change', updateParameterAvailability);
 el.yParam.addEventListener('change', updateParameterAvailability);
+
+// Time axis checkbox handler
+el.enableTimeAxis.addEventListener('change', () => {
+  const enabled = el.enableTimeAxis.checked;
+  el.tMin.disabled = !enabled;
+  el.tMax.disabled = !enabled;
+  el.tSteps.disabled = !enabled;
+
+  // Update tMax default to match t_end when enabled
+  if (enabled && el.tMax.value === '2600') {
+    el.tMax.value = el.t_end.value;
+  }
+});
 
 initDefaults();
 applyPresetValue(presetSel.value);
