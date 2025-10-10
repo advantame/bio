@@ -512,13 +512,8 @@ async function run3DGridParallel(frames, bp, xParam, yParam, tParam, xMin, xMax,
     });
   }
 
-  // Create workers
-  const workers = [];
-  for (let w = 0; w < numWorkers; w++) {
-    workers.push(new Worker('./heatmap-worker.js', { type: 'module' }));
-  }
-
   // Process frames in chunks to avoid holding all cells in memory
+  // Workers are created fresh for each chunk to avoid handler conflicts
   const CHUNK_SIZE = 10000; // Process 10k cells at a time
   let globalCompleted = 0;
 
@@ -561,8 +556,8 @@ async function run3DGridParallel(frames, bp, xParam, yParam, tParam, xMin, xMax,
       chunk.push({ ...cell, cellIndex: cellIndex++ });
 
       if (chunk.length >= CHUNK_SIZE) {
-        // Process this chunk
-        await processChunk(chunk, workers, tempFrames, nx, metric, tailPct, storage);
+        // Process this chunk (creates fresh workers internally)
+        await processChunk(chunk, numWorkers, tempFrames, nx, metric, tailPct, storage);
         globalCompleted += chunk.length;
 
         // Clear chunk and force GC hint
@@ -576,7 +571,7 @@ async function run3DGridParallel(frames, bp, xParam, yParam, tParam, xMin, xMax,
 
     // Process remaining cells
     if (chunk.length > 0) {
-      await processChunk(chunk, workers, tempFrames, nx, metric, tailPct, storage);
+      await processChunk(chunk, numWorkers, tempFrames, nx, metric, tailPct, storage);
       globalCompleted += chunk.length;
       chunk = null; // Release reference
 
@@ -619,60 +614,73 @@ async function run3DGridParallel(frames, bp, xParam, yParam, tParam, xMin, xMax,
     console.error('Parallel execution failed:', error);
     await storage.clearSession();
     throw error;
-  } finally {
-    // Cleanup workers immediately
-    workers.forEach(w => {
-      w.terminate();
-    });
+  }
+  // Note: Workers are created and terminated within each processChunk() call
+}
+
+// Helper function to save completed frames to IndexedDB
+async function saveCompletedFrames(tempFrames, storage) {
+  for (let t = 0; t < tempFrames.length; t++) {
+    const frame = tempFrames[t];
+    if (frame.cellsCompleted >= frame.totalCellsInFrame && !frame.saved && frame.grid) {
+      await storage.storeFrame(t, frame.grid, frame.tVal);
+      frame.saved = true;
+      // Clear grid from memory
+      frame.grid.fill(0);
+      frame.grid = null;
+    }
   }
 }
 
 // Helper function to process a chunk of cells
-async function processChunk(cells, workers, tempFrames, nx, metric, tailPct, storage) {
-  const numWorkers = workers.length;
+// Creates fresh workers for each chunk to avoid onmessage handler conflicts
+async function processChunk(cells, numWorkers, tempFrames, nx, metric, tailPct, storage) {
   const cellsPerWorker = Math.ceil(cells.length / numWorkers);
+
+  // Create fresh workers for this chunk to avoid handler conflicts
+  const workers = [];
+  for (let w = 0; w < numWorkers; w++) {
+    workers.push(new Worker('./heatmap-worker.js', { type: 'module' }));
+  }
 
   const promises = workers.map((worker, workerIdx) => {
     const start = workerIdx * cellsPerWorker;
     const end = Math.min(start + cellsPerWorker, cells.length);
     const workerCells = cells.slice(start, end);
 
-    if (workerCells.length === 0) return Promise.resolve(0);
+    if (workerCells.length === 0) {
+      worker.terminate();
+      return Promise.resolve(0);
+    }
 
     return new Promise((resolve, reject) => {
-      worker.onmessage = async (e) => {
+      // Synchronous handler - no async to avoid IndexedDB blocking
+      worker.onmessage = (e) => {
         const { results, error } = e.data;
 
         if (error) {
+          worker.terminate();
           reject(new Error(error));
           return;
         }
 
-        // Fill temporary grids with results
+        // Fill temporary grids with results (synchronous)
         for (const { i, j, value, cellIndex } of results) {
           const cellData = cells[cellIndex - cells[0].cellIndex];
           if (cellData) {
             const { t } = cellData;
             tempFrames[t].grid[j * nx + i] = Number.isFinite(value) ? value : NaN;
             tempFrames[t].cellsCompleted++;
-
-            // If this frame is complete, save to IndexedDB and clear from memory
-            if (tempFrames[t].cellsCompleted >= tempFrames[t].totalCellsInFrame && !tempFrames[t].saved) {
-              await storage.storeFrame(t, tempFrames[t].grid, tempFrames[t].tVal);
-              tempFrames[t].saved = true;
-
-              // Clear the grid from memory immediately
-              tempFrames[t].grid.fill(0);
-              tempFrames[t].grid = null;
-              tempFrames[t].grid = new Float32Array(nx * ny).fill(NaN); // Reinitialize in case more data comes
-            }
           }
         }
 
+        // Terminate worker immediately after processing
+        worker.terminate();
         resolve(results.length);
       };
 
       worker.onerror = (err) => {
+        worker.terminate();
         reject(new Error(`Worker ${workerIdx} error: ${err.message}`));
       };
 
@@ -687,6 +695,9 @@ async function processChunk(cells, workers, tempFrames, nx, metric, tailPct, sto
   });
 
   await Promise.all(promises);
+
+  // Save completed frames after all workers finish (separate from worker communication)
+  await saveCompletedFrames(tempFrames, storage);
 }
 
 // Generate video from 3D grid data with memory-optimized streaming
