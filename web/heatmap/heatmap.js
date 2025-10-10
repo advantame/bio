@@ -433,7 +433,7 @@ async function runTimeAxisAnimation() {
 
   status.textContent = '動画生成中...';
   await generateVideoFrom3DGrid(frames, nx, ny, xMin, xMax, yMin, yMax,
-    axisLabel(xParam), axisLabel(yParam), axisLabel(tParam), metric, videoDuration);
+    axisLabel(xParam), axisLabel(yParam), axisLabel(tParam), tMin, tMax, metric, videoDuration);
 }
 
 // Sequential execution for 3D grid
@@ -583,7 +583,7 @@ async function run3DGridParallel(frames, bp, xParam, yParam, tParam, xMin, xMax,
 
 // Generate video from 3D grid data
 async function generateVideoFrom3DGrid(frames, nx, ny, xMin, xMax, yMin, yMax,
-  xLabel, yLabel, tLabel, metric, videoDuration) {
+  xLabel, yLabel, tLabel, tMin, tMax, metric, videoDuration) {
 
   // Compute global data range across all frames
   let globalMin = +Infinity, globalMax = -Infinity;
@@ -625,15 +625,15 @@ async function generateVideoFrom3DGrid(frames, nx, ny, xMin, xMax, yMin, yMax,
   // Calculate frame duration in milliseconds
   const frameDuration = (videoDuration * 1000) / frames.length;
 
+  // Determine metric unit
+  const metricUnit = metric === 'period' ? '[min]' : (metric === 'amplitude' ? '[nM]' : '');
+
   // Render each frame
   for (let i = 0; i < frames.length; i++) {
     const { grid, tVal } = frames[i];
 
-    const metricUnit = metric === 'period' ? ' [min]' : (metric === 'amplitude' ? ' [nM]' : '');
-    const title = `${tLabel} = ${roundSmart(tVal)}`;
-
     drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel,
-      globalMin, globalMax, title, metric + metricUnit);
+      globalMin, globalMax, metricUnit, tLabel, tMin, tMax, tVal, i, frames.length);
 
     status.textContent = `動画エンコード中... ${i + 1}/${frames.length}`;
     await new Promise(r => setTimeout(r, frameDuration));
@@ -643,9 +643,10 @@ async function generateVideoFrom3DGrid(frames, nx, ny, xMin, xMax, yMin, yMax,
 }
 
 // Draw a single heatmap frame (for animation)
-function drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, dmin, dmax, title, metricLabel) {
+function drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel,
+  dmin, dmax, metricUnit, tLabel, tMin, tMax, tVal, frameIdx, totalFrames) {
   const W = cv.width, H = cv.height;
-  const L = 80, R = 120, T = 50, B = 70;
+  const L = 80, R = 120, T = 50, B = 90; // Increased bottom margin for timeline
 
   ctx.save();
   ctx.fillStyle = '#fff';
@@ -691,22 +692,23 @@ function drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, 
   ctx.strokeStyle = '#334155';
   ctx.strokeRect(lgX, lgY, lgW, lgH);
 
-  // Legend labels
+  // Legend labels (numbers and units only)
   ctx.fillStyle = '#0f172a';
   ctx.font = '12px system-ui';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  ctx.fillText(roundSmart(dmax) + (metricLabel || ''), lgX + lgW + 6, lgY);
+  ctx.fillText(roundSmart(dmax) + ' ' + metricUnit, lgX + lgW + 6, lgY);
   ctx.textBaseline = 'bottom';
-  ctx.fillText(roundSmart(dmin) + (metricLabel || ''), lgX + lgW + 6, lgY + lgH);
+  ctx.fillText(roundSmart(dmin) + ' ' + metricUnit, lgX + lgW + 6, lgY + lgH);
 
-  // Axis labels
+  // X-axis label
   ctx.fillStyle = '#111827';
   ctx.font = '13px system-ui';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
-  ctx.fillText(xLabel, L + (W - L - R) / 2, H - 8);
+  ctx.fillText(xLabel, L + (W - L - R) / 2, H - B + 70);
 
+  // Y-axis label
   ctx.save();
   ctx.translate(16, T + (H - T - B) / 2);
   ctx.rotate(-Math.PI / 2);
@@ -715,12 +717,65 @@ function drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, 
   ctx.fillText(yLabel, 0, 0);
   ctx.restore();
 
-  // Title
-  ctx.fillStyle = '#111827';
+  // T-axis timeline at bottom
+  const timelineY = H - B + 20;
+  const timelineLeft = L + 60;
+  const timelineRight = W - R - 60;
+  const timelineWidth = timelineRight - timelineLeft;
+
+  // Timeline background line
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(timelineLeft, timelineY);
+  ctx.lineTo(timelineRight, timelineY);
+  ctx.stroke();
+
+  // Timeline ticks and labels
+  ctx.fillStyle = '#64748b';
+  ctx.font = '11px system-ui';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.font = '16px system-ui';
-  ctx.fillText(title, L + (W - L - R) / 2, 12);
+
+  // Start tick
+  ctx.beginPath();
+  ctx.moveTo(timelineLeft, timelineY - 4);
+  ctx.lineTo(timelineLeft, timelineY + 4);
+  ctx.stroke();
+  ctx.fillText(roundSmart(tMin), timelineLeft, timelineY + 8);
+
+  // End tick
+  ctx.beginPath();
+  ctx.moveTo(timelineRight, timelineY - 4);
+  ctx.lineTo(timelineRight, timelineY + 4);
+  ctx.stroke();
+  ctx.fillText(roundSmart(tMax), timelineRight, timelineY + 8);
+
+  // Current position marker (triangle)
+  const tProgress = (tVal - tMin) / (tMax - tMin || 1);
+  const markerX = timelineLeft + tProgress * timelineWidth;
+
+  ctx.fillStyle = '#ef4444';
+  ctx.beginPath();
+  ctx.moveTo(markerX, timelineY - 10);
+  ctx.lineTo(markerX - 6, timelineY - 18);
+  ctx.lineTo(markerX + 6, timelineY - 18);
+  ctx.closePath();
+  ctx.fill();
+
+  // Current value label
+  ctx.fillStyle = '#111827';
+  ctx.font = 'bold 12px system-ui';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(`${tLabel} = ${roundSmart(tVal)}`, markerX, timelineY - 20);
+
+  // Timeline label
+  ctx.fillStyle = '#64748b';
+  ctx.font = '11px system-ui';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(tLabel, timelineLeft - 50, timelineY);
 }
 
 // Experimental: Use FFT for period detection (set to true to enable)
