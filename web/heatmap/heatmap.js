@@ -21,7 +21,7 @@ const ids = [
   'yParam','yMin','yMax','ySteps',
   'metric','t_end','dt','tail',
   'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0',
-  'enableTimeAxis','tMin','tMax','tSteps'
+  'enableTimeAxis','tParam','tMin','tMax','tSteps','videoDuration'
 ];
 const el = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 const presetSel = document.getElementById('preset');
@@ -377,80 +377,97 @@ async function runHeatmapParallel(variantMap, variantStyles, previewVariants, bp
   }
 }
 
-// Time axis animation function
+// T-axis (3rd axis) animation function
 async function runTimeAxisAnimation() {
   const xParam = el.xParam.value;
   const yParam = el.yParam.value;
-  if (xParam === yParam) {
-    status.textContent = 'XとYのパラメータは別にしてください。';
+  const tParam = el.tParam.value;
+
+  // Validation
+  if (xParam === yParam || xParam === tParam || yParam === tParam) {
+    status.textContent = 'X、Y、Tのパラメータはすべて別にしてください。';
+    return;
+  }
+  if (tParam === 'none') {
+    status.textContent = 'T軸のパラメータを選択してください。';
     return;
   }
 
   const xMin = num('xMin'), xMax = num('xMax');
   const yMin = num('yMin'), yMax = num('yMax');
+  const tMin = num('tMin'), tMax = num('tMax');
   const nx = Math.max(2, Math.floor(num('xSteps')));
   const ny = Math.max(2, Math.floor(num('ySteps')));
-  const tMin = num('tMin'), tMax = num('tMax');
-  const tSteps = Math.max(2, Math.floor(num('tSteps')));
+  const nt = Math.max(2, Math.floor(num('tSteps')));
+  const metric = el.metric.value;
+  const tailPct = Math.min(100, Math.max(1, Math.floor(num('tail'))));
+  const videoDuration = Math.max(1, num('videoDuration'));
+
   const bp = baseParams();
+  const totalSims = nx * ny * nt;
 
-  status.textContent = `時系列シミュレーション実行中... (${nx}×${ny} グリッド)`;
+  status.textContent = `3D空間シミュレーション実行中... (${nx}×${ny}×${nt} = ${totalSims}回)`;
 
-  // Run simulations for all grid points and store time series
-  const gridData = [];
-  for (let j = 0; j < ny; j++) {
-    const yVal = yMin + (yMax - yMin) * (j / (ny - 1));
-    for (let i = 0; i < nx; i++) {
-      const xVal = xMin + (xMax - xMin) * (i / (nx - 1));
-      const { params } = buildParamsForAxes(bp, { name: xParam, value: xVal }, { name: yParam, value: yVal });
+  // Build 3D grid: for each T value, compute X×Y heatmap
+  const frames = [];
 
-      // Run time series simulation
-      const { N, P } = runSimulationPhysical(params);
-      gridData.push({ i, j, N, P });
+  for (let t = 0; t < nt; t++) {
+    const tVal = tMin + (tMax - tMin) * (t / (nt - 1));
+    const grid = new Float32Array(nx * ny);
+
+    for (let j = 0; j < ny; j++) {
+      const yVal = yMin + (yMax - yMin) * (j / (ny - 1));
+      for (let i = 0; i < nx; i++) {
+        const xVal = xMin + (xMax - xMin) * (i / (nx - 1));
+
+        // Build params with all three axes
+        const { params } = buildParamsForAxes(bp,
+          { name: xParam, value: xVal },
+          { name: yParam, value: yVal }
+        );
+        // Apply T-axis
+        applyAxisValue(params, tParam, tVal);
+
+        // Run simulation and evaluate metric
+        const val = runSimulationAndEvaluate(params, metric, tailPct);
+        grid[j * nx + i] = Number.isFinite(val) ? val : NaN;
+      }
     }
 
-    if (j % 5 === 0) {
-      status.textContent = `時系列シミュレーション実行中... ${j + 1}/${ny}`;
+    frames.push({ grid, tVal });
+
+    if (t % Math.max(1, Math.floor(nt / 10)) === 0) {
+      const progress = Math.floor((t / nt) * 100);
+      status.textContent = `3D空間シミュレーション実行中... ${progress}% (${t * nx * ny}/${totalSims})`;
       await new Promise(r => setTimeout(r, 0));
     }
   }
 
   status.textContent = '動画生成中...';
-  await generateVideoFromTimeSeries(gridData, nx, ny, xMin, xMax, yMin, yMax,
-    axisLabel(xParam), axisLabel(yParam), tMin, tMax, tSteps, bp.dt_min);
+  await generateVideoFrom3DGrid(frames, nx, ny, xMin, xMax, yMin, yMax,
+    axisLabel(xParam), axisLabel(yParam), axisLabel(tParam), metric, videoDuration);
 }
 
-// Generate video from time series data
-async function generateVideoFromTimeSeries(gridData, nx, ny, xMin, xMax, yMin, yMax,
-  xLabel, yLabel, tMin, tMax, tSteps, dt) {
+// Generate video from 3D grid data
+async function generateVideoFrom3DGrid(frames, nx, ny, xMin, xMax, yMin, yMax,
+  xLabel, yLabel, tLabel, metric, videoDuration) {
 
-  const frames = [];
-  const totalTimePoints = gridData[0].N.length;
-  const tMinIdx = Math.floor(tMin / dt);
-  const tMaxIdx = Math.min(Math.floor(tMax / dt), totalTimePoints - 1);
-
-  // Generate frames at specified time steps
-  for (let t = 0; t < tSteps; t++) {
-    const timeIdx = Math.floor(tMinIdx + (tMaxIdx - tMinIdx) * (t / (tSteps - 1)));
-    const currentTime = timeIdx * dt;
-
-    // Build grid for this time point (using N concentration)
-    const grid = new Float32Array(nx * ny);
-    for (const { i, j, N } of gridData) {
-      grid[j * nx + i] = N[timeIdx];
-    }
-
-    frames.push({ grid, time: currentTime });
-
-    if (t % 10 === 0) {
-      status.textContent = `フレーム生成中... ${t + 1}/${tSteps}`;
-      await new Promise(r => setTimeout(r, 0));
+  // Compute global data range across all frames
+  let globalMin = +Infinity, globalMax = -Infinity;
+  for (const { grid } of frames) {
+    for (const v of grid) {
+      if (!Number.isFinite(v)) continue;
+      if (v < globalMin) globalMin = v;
+      if (v > globalMax) globalMax = v;
     }
   }
+  if (!Number.isFinite(globalMin) || !Number.isFinite(globalMax) || globalMax === globalMin) {
+    globalMin = 0; globalMax = 1;
+  }
 
-  // Record video using MediaRecorder
-  status.textContent = '動画エンコード中...';
-  const stream = cv.captureStream(30); // 30 fps
+  // Setup MediaRecorder
+  const targetFPS = 30;
+  const stream = cv.captureStream(targetFPS);
   const mediaRecorder = new MediaRecorder(stream, {
     mimeType: 'video/webm;codecs=vp9',
     videoBitsPerSecond: 5000000
@@ -467,38 +484,33 @@ async function generateVideoFromTimeSeries(gridData, nx, ny, xMin, xMax, yMin, y
     videoPlayer.src = url;
     videoPlayer.style.display = 'block';
     cv.style.display = 'none';
-    status.textContent = `動画生成完了 (${tSteps} フレーム, ${(tMax - tMin).toFixed(0)}分間)`;
+    status.textContent = `動画生成完了 (${frames.length} フレーム, ${videoDuration}秒)`;
   };
 
   mediaRecorder.start();
 
+  // Calculate frame duration in milliseconds
+  const frameDuration = (videoDuration * 1000) / frames.length;
+
   // Render each frame
   for (let i = 0; i < frames.length; i++) {
-    const { grid, time } = frames[i];
+    const { grid, tVal } = frames[i];
 
-    // Compute data range
-    let dmin = +Infinity, dmax = -Infinity;
-    for (const v of grid) {
-      if (!Number.isFinite(v)) continue;
-      if (v < dmin) dmin = v;
-      if (v > dmax) dmax = v;
-    }
-    if (!Number.isFinite(dmin) || !Number.isFinite(dmax) || dmax === dmin) {
-      dmin = 0; dmax = 1;
-    }
+    const metricUnit = metric === 'period' ? ' [min]' : (metric === 'amplitude' ? ' [nM]' : '');
+    const title = `${tLabel} = ${roundSmart(tVal)}`;
 
-    // Draw frame
     drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel,
-      dmin, dmax, `N濃度 @ t = ${time.toFixed(1)} min`);
+      globalMin, globalMax, title, metric + metricUnit);
 
-    await new Promise(r => setTimeout(r, 50)); // 20 fps playback
+    status.textContent = `動画エンコード中... ${i + 1}/${frames.length}`;
+    await new Promise(r => setTimeout(r, frameDuration));
   }
 
   mediaRecorder.stop();
 }
 
-// Draw a single heatmap frame (simplified version)
-function drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, dmin, dmax, title) {
+// Draw a single heatmap frame (for animation)
+function drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, dmin, dmax, title, metricLabel) {
   const W = cv.width, H = cv.height;
   const L = 80, R = 120, T = 50, B = 70;
 
@@ -551,9 +563,9 @@ function drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, 
   ctx.font = '12px system-ui';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  ctx.fillText(roundSmart(dmax) + ' nM', lgX + lgW + 6, lgY);
+  ctx.fillText(roundSmart(dmax) + (metricLabel || ''), lgX + lgW + 6, lgY);
   ctx.textBaseline = 'bottom';
-  ctx.fillText(roundSmart(dmin) + ' nM', lgX + lgW + 6, lgY + lgH);
+  ctx.fillText(roundSmart(dmin) + (metricLabel || ''), lgX + lgW + 6, lgY + lgH);
 
   // Axis labels
   ctx.fillStyle = '#111827';
@@ -879,17 +891,14 @@ function updateParameterAvailability(){
 el.xParam.addEventListener('change', updateParameterAvailability);
 el.yParam.addEventListener('change', updateParameterAvailability);
 
-// Time axis checkbox handler
+// T-axis (3rd axis) checkbox handler
 el.enableTimeAxis.addEventListener('change', () => {
   const enabled = el.enableTimeAxis.checked;
+  el.tParam.disabled = !enabled;
   el.tMin.disabled = !enabled;
   el.tMax.disabled = !enabled;
   el.tSteps.disabled = !enabled;
-
-  // Update tMax default to match t_end when enabled
-  if (enabled && el.tMax.value === '2600') {
-    el.tMax.value = el.t_end.value;
-  }
+  el.videoDuration.disabled = !enabled;
 });
 
 initDefaults();

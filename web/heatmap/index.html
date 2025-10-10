@@ -128,14 +128,31 @@
           </div>
 
           <div class="param-group" style="margin-top:16px; border-top:1px solid #e5e7eb; padding-top:12px;">
-            <label for="enableTimeAxis"><strong>時間軸動画生成</strong></label>
+            <label for="enableTimeAxis"><strong>🎬 第3軸（動画）</strong></label>
             <input id="enableTimeAxis" type="checkbox">
-            <label for="tMin">　開始時刻 [min]</label>
-            <input id="tMin" type="number" step="10" value="0" disabled>
-            <label for="tMax">　終了時刻 [min]</label>
-            <input id="tMax" type="number" step="10" value="2600" disabled>
-            <label for="tSteps">　フレーム数</label>
-            <input id="tSteps" type="number" step="1" value="50" disabled>
+            <label for="tParam">　T軸パラメータ</label>
+            <select id="tParam" disabled>
+              <option value="none">なし</option>
+              <option value="G">G (鋳型濃度)</option>
+              <option value="k1">k₁ (会合速度定数)</option>
+              <option value="assoc_ddg">ΔΔG_assoc (自由エネルギー差)</option>
+              <option value="assoc_r">r_assoc (会合比)</option>
+              <option value="poly_r">r_poly (ターンオーバー倍率)</option>
+              <option value="nick_r">r_nick (飽和倍率)</option>
+              <option value="pol">pol (ポリメラーゼ濃度)</option>
+              <option value="rec">rec (分解酵素濃度)</option>
+              <option value="KmP">KmP (ミカエリス定数)</option>
+              <option value="N0">N₀ (初期prey濃度)</option>
+              <option value="P0">P₀ (初期predator濃度)</option>
+            </select>
+            <label for="tMin">　最小値</label>
+            <input id="tMin" type="number" step="0.01" value="0.5" disabled>
+            <label for="tMax">　最大値</label>
+            <input id="tMax" type="number" step="0.01" value="2.0" disabled>
+            <label for="tSteps">　分割数</label>
+            <input id="tSteps" type="number" step="1" value="10" disabled>
+            <label for="videoDuration">　動画の長さ [秒]</label>
+            <input id="videoDuration" type="number" step="1" value="5" disabled>
           </div>
         </div>
 
@@ -186,7 +203,7 @@
       例えば、横軸に鋳型DNA濃度 <code>G</code>、縦軸にアミノ酸修飾による自由エネルギー差 <code>ΔΔG<sub>assoc</sub></code> を設定すると、修飾強度と鋳型濃度の組み合わせごとに振動周期がどう変化するかを色で俯瞰できます。
     </p>
     <p>
-      <strong>🎬 時間軸動画生成機能:</strong> 「時間軸動画生成」をONにすると、X-Yパラメータ空間での<strong>時系列変化</strong>を動画として生成できます。各グリッドポイントで時系列シミュレーションを実行し、指定した時間範囲でのヒートマップの変化を動画で確認できます。例えば、N濃度の時間変化をパラメータ空間全体で可視化することで、振動の開始タイミングや位相のずれなどを直感的に理解できます。
+      <strong>🎬 第3軸（動画）機能:</strong> 「第3軸（動画）」をONにすると、3つのパラメータを同時に変化させた結果を動画として生成できます。T軸に任意のパラメータ（例：r_assoc）を割り当て、その変化に伴うX-Yヒートマップの変化を可視化します。例えば、X=G、Y=rec、T=r_assocとすると、会合比が変化したときの鋳型濃度と分解酵素のバランスがどう振る舞うかを動画で確認できます。
     </p>
     <p>
       <em>文脈:</em> あなたの最終目標は「DNAへのアミノ酸結合が振動の波長をどう変えるか」を明らかにすることです。このツールはその問いに最も直接的に答えるためのものです。このヒートマップを使えば、「アミノ酸修補飾効果(<code>k₁</code>の低下)は、<code>G</code>濃度が低い領域では周期をわずかに伸ばすだけだが、<code>G</code>濃度が高い領域では周期を劇的に変化させる」といった、<strong>パラメータ間の複雑な相互作用</strong>を明らかにすることができます。これにより、シミュレーションから「xxという条件下でyyという結果が得られるはずだ」という、実験的に検証可能な<strong>具体的な仮説</strong>を生み出すことが可能になります。
