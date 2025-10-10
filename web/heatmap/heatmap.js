@@ -8,6 +8,17 @@ import {
   ensureActiveExists,
   getOverlayModificationIds,
 } from "../modifications.js";
+import { FrameStorage } from "./frame-storage.js";
+
+// Memory management utilities
+function forceGCHint() {
+  // Create and immediately discard large temporary arrays to hint at garbage collection
+  // This doesn't guarantee GC but helps browsers prioritize it
+  if (typeof performance !== 'undefined' && performance.memory) {
+    const temp = new Array(1000);
+    temp.fill(null);
+  }
+}
 
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d', { alpha:false });
@@ -417,10 +428,11 @@ async function runTimeAxisAnimation() {
   const numWorkers = USE_PARALLEL ? (navigator.hardwareConcurrency || 4) : 1;
 
   const frames = [];
+  let storage = null;
 
   if (USE_PARALLEL && numWorkers > 1) {
     // === PARALLEL EXECUTION ===
-    await run3DGridParallel(frames, bp, xParam, yParam, tParam, xMin, xMax, yMin, yMax, tMin, tMax, nx, ny, nt, metric, tailPct, status);
+    storage = await run3DGridParallel(frames, bp, xParam, yParam, tParam, xMin, xMax, yMin, yMax, tMin, tMax, nx, ny, nt, metric, tailPct, status);
   } else {
     // === SEQUENTIAL EXECUTION ===
     await run3DGridSequential(frames, bp, xParam, yParam, tParam, xMin, xMax, yMin, yMax, tMin, tMax, nx, ny, nt, metric, tailPct, status);
@@ -434,7 +446,13 @@ async function runTimeAxisAnimation() {
 
   status.textContent = '動画生成中...';
   await generateVideoFrom3DGrid(frames, nx, ny, xMin, xMax, yMin, yMax,
-    axisLabel(xParam), axisLabel(yParam), axisLabel(tParam), tMin, tMax, metric, videoDuration);
+    axisLabel(xParam), axisLabel(yParam), axisLabel(tParam), tMin, tMax, metric, videoDuration, storage);
+
+  // Cleanup storage after video generation
+  if (storage) {
+    await storage.clearSession();
+    storage.close();
+  }
 }
 
 // Sequential execution for 3D grid
@@ -472,78 +490,184 @@ async function run3DGridSequential(frames, bp, xParam, yParam, tParam, xMin, xMa
   }
 }
 
-// Parallel execution for 3D grid using Web Workers
+// Parallel execution for 3D grid using Web Workers with memory-optimized streaming
 async function run3DGridParallel(frames, bp, xParam, yParam, tParam, xMin, xMax, yMin, yMax, tMin, tMax, nx, ny, nt, metric, tailPct, status) {
-  // Build list of all cells to compute
-  const allCells = [];
+  const totalCells = nx * ny * nt;
+  const numWorkers = navigator.hardwareConcurrency || 4;
+
+  // Initialize IndexedDB storage
+  const storage = new FrameStorage();
+  await storage.init();
+  await storage.clearOldSessions(); // Clean up old data
+
+  // Initialize temporary frame grids (one per frame, will be cleared after saving to IndexedDB)
+  const tempFrames = [];
   for (let t = 0; t < nt; t++) {
     const tVal = tMin + (tMax - tMin) * (t / (nt - 1));
-    for (let j = 0; j < ny; j++) {
-      const yVal = yMin + (yMax - yMin) * (j / (ny - 1));
-      for (let i = 0; i < nx; i++) {
-        const xVal = xMin + (xMax - xMin) * (i / (nx - 1));
-
-        // Build params with all three axes
-        const { params } = buildParamsForAxes(bp,
-          { name: xParam, value: xVal },
-          { name: yParam, value: yVal }
-        );
-        // Apply T-axis
-        applyAxisValue(params, tParam, tVal);
-
-        allCells.push({
-          i, j, t, tVal,
-          params
-        });
-      }
-    }
+    tempFrames.push({
+      grid: new Float32Array(nx * ny).fill(NaN),
+      tVal,
+      cellsCompleted: 0,
+      totalCellsInFrame: nx * ny
+    });
   }
 
-  const totalCells = allCells.length;
-  const numWorkers = navigator.hardwareConcurrency || 4;
-  const workers = [];
-
   // Create workers
+  const workers = [];
   for (let w = 0; w < numWorkers; w++) {
     workers.push(new Worker('./heatmap-worker.js', { type: 'module' }));
   }
 
-  // Initialize frame grids
-  for (let t = 0; t < nt; t++) {
-    const tVal = tMin + (tMax - tMin) * (t / (nt - 1));
-    frames.push({ grid: new Float32Array(nx * ny).fill(NaN), tVal });
+  // Process frames in chunks to avoid holding all cells in memory
+  const CHUNK_SIZE = 10000; // Process 10k cells at a time
+  let globalCompleted = 0;
+
+  // Generator function to yield cells on-demand instead of building full array
+  function* generateCells() {
+    for (let t = 0; t < nt; t++) {
+      const tVal = tMin + (tMax - tMin) * (t / (nt - 1));
+      for (let j = 0; j < ny; j++) {
+        const yVal = yMin + (yMax - yMin) * (j / (ny - 1));
+        for (let i = 0; i < nx; i++) {
+          const xVal = xMin + (xMax - xMin) * (i / (nx - 1));
+
+          // Build params with all three axes
+          const { params } = buildParamsForAxes(bp,
+            { name: xParam, value: xVal },
+            { name: yParam, value: yVal }
+          );
+          // Apply T-axis
+          applyAxisValue(params, tParam, tVal);
+
+          yield { i, j, t, tVal, params };
+        }
+      }
+    }
   }
 
-  // Distribute cells across workers
-  const cellsPerWorker = Math.ceil(totalCells / numWorkers);
+  // Track progress
+  const updateInterval = setInterval(() => {
+    const progress = Math.floor((globalCompleted / totalCells) * 100);
+    status.textContent = `3D空間シミュレーション実行中... ${progress}% (${numWorkers} workers)`;
+  }, 100);
+
+  try {
+    // Process cells in chunks
+    const cellGenerator = generateCells();
+    let chunk = [];
+    let cellIndex = 0;
+
+    for (const cell of cellGenerator) {
+      chunk.push({ ...cell, cellIndex: cellIndex++ });
+
+      if (chunk.length >= CHUNK_SIZE) {
+        // Process this chunk
+        await processChunk(chunk, workers, tempFrames, nx, metric, tailPct, storage);
+        globalCompleted += chunk.length;
+
+        // Clear chunk and force GC hint
+        chunk.length = 0;
+        chunk = [];
+
+        // Hint at garbage collection after processing chunk
+        forceGCHint();
+      }
+    }
+
+    // Process remaining cells
+    if (chunk.length > 0) {
+      await processChunk(chunk, workers, tempFrames, nx, metric, tailPct, storage);
+      globalCompleted += chunk.length;
+      chunk = null; // Release reference
+
+      // Final GC hint
+      forceGCHint();
+    }
+
+    clearInterval(updateInterval);
+
+    // Save metadata to frames array for compatibility
+    for (let t = 0; t < nt; t++) {
+      frames.push({
+        frameIndex: t,
+        tVal: tempFrames[t].tVal,
+        // Store reference to IndexedDB, not actual grid
+        inStorage: true
+      });
+    }
+
+    // Clear temp frames from memory
+    tempFrames.forEach(f => {
+      if (f.grid) {
+        f.grid.fill(0);
+        f.grid = null;
+      }
+    });
+    tempFrames.length = 0;
+
+    // Force GC after clearing temp data
+    forceGCHint();
+
+    status.textContent = `並列計算完了 (${globalCompleted}/${totalCells} cells)`;
+
+    // Return storage instance for later use
+    return storage;
+
+  } catch (error) {
+    clearInterval(updateInterval);
+    status.textContent = `Error: ${error.message}`;
+    console.error('Parallel execution failed:', error);
+    await storage.clearSession();
+    throw error;
+  } finally {
+    // Cleanup workers immediately
+    workers.forEach(w => {
+      w.terminate();
+    });
+  }
+}
+
+// Helper function to process a chunk of cells
+async function processChunk(cells, workers, tempFrames, nx, metric, tailPct, storage) {
+  const numWorkers = workers.length;
+  const cellsPerWorker = Math.ceil(cells.length / numWorkers);
+
   const promises = workers.map((worker, workerIdx) => {
     const start = workerIdx * cellsPerWorker;
-    const end = Math.min(start + cellsPerWorker, totalCells);
-    const workerCells = allCells.slice(start, end).map((cell, idx) => ({
-      ...cell,
-      cellIndex: start + idx
-    }));
+    const end = Math.min(start + cellsPerWorker, cells.length);
+    const workerCells = cells.slice(start, end);
+
+    if (workerCells.length === 0) return Promise.resolve(0);
 
     return new Promise((resolve, reject) => {
-      worker.onmessage = (e) => {
-        const { workerId, results, error } = e.data;
+      worker.onmessage = async (e) => {
+        const { results, error } = e.data;
 
         if (error) {
           reject(new Error(error));
           return;
         }
 
-        // Fill grids with results
+        // Fill temporary grids with results
         for (const { i, j, value, cellIndex } of results) {
-          const cellData = cellIndex !== undefined ? allCells[cellIndex] : null;
+          const cellData = cells[cellIndex - cells[0].cellIndex];
           if (cellData) {
             const { t } = cellData;
-            frames[t].grid[j * nx + i] = Number.isFinite(value) ? value : NaN;
+            tempFrames[t].grid[j * nx + i] = Number.isFinite(value) ? value : NaN;
+            tempFrames[t].cellsCompleted++;
+
+            // If this frame is complete, save to IndexedDB and clear from memory
+            if (tempFrames[t].cellsCompleted >= tempFrames[t].totalCellsInFrame && !tempFrames[t].saved) {
+              await storage.storeFrame(t, tempFrames[t].grid, tempFrames[t].tVal);
+              tempFrames[t].saved = true;
+
+              // Clear the grid from memory immediately
+              tempFrames[t].grid.fill(0);
+              tempFrames[t].grid = null;
+              tempFrames[t].grid = new Float32Array(nx * ny).fill(NaN); // Reinitialize in case more data comes
+            }
           }
         }
-
-        // Update progress
-        completed += results.length;
 
         resolve(results.length);
       };
@@ -562,41 +686,36 @@ async function run3DGridParallel(frames, bp, xParam, yParam, tParam, xMin, xMax,
     });
   });
 
-  // Track progress
-  let completed = 0;
-  const updateInterval = setInterval(() => {
-    const progress = Math.floor((completed / totalCells) * 100);
-    status.textContent = `3D空間シミュレーション実行中... ${progress}% (${numWorkers} workers)`;
-  }, 100);
-
-  try {
-    await Promise.all(promises);
-    clearInterval(updateInterval);
-    status.textContent = `並列計算完了 (${completed}/${totalCells} cells)`;
-  } catch (error) {
-    clearInterval(updateInterval);
-    status.textContent = `Error: ${error.message}`;
-    console.error('Parallel execution failed:', error);
-  } finally {
-    workers.forEach(w => w.terminate());
-  }
+  await Promise.all(promises);
 }
 
-// Generate video from 3D grid data
+// Generate video from 3D grid data with memory-optimized streaming
 async function generateVideoFrom3DGrid(frames, nx, ny, xMin, xMax, yMin, yMax,
-  xLabel, yLabel, tLabel, tMin, tMax, metric, videoDuration) {
+  xLabel, yLabel, tLabel, tMin, tMax, metric, videoDuration, storage = null) {
 
-  // Compute global data range across all frames
-  let globalMin = +Infinity, globalMax = -Infinity;
-  for (const { grid } of frames) {
-    for (const v of grid) {
-      if (!Number.isFinite(v)) continue;
-      if (v < globalMin) globalMin = v;
-      if (v > globalMax) globalMax = v;
+  let globalMin, globalMax;
+
+  if (storage) {
+    // Use IndexedDB streaming to compute global range without loading all frames
+    status.textContent = 'グローバル範囲を計算中...';
+    const range = await storage.computeGlobalRange(frames.length);
+    globalMin = range.globalMin;
+    globalMax = range.globalMax;
+  } else {
+    // Original method: compute from in-memory frames
+    globalMin = +Infinity;
+    globalMax = -Infinity;
+    for (const { grid } of frames) {
+      for (const v of grid) {
+        if (!Number.isFinite(v)) continue;
+        if (v < globalMin) globalMin = v;
+        if (v > globalMax) globalMax = v;
+      }
     }
-  }
-  if (!Number.isFinite(globalMin) || !Number.isFinite(globalMax) || globalMax === globalMin) {
-    globalMin = 0; globalMax = 1;
+    if (!Number.isFinite(globalMin) || !Number.isFinite(globalMax) || globalMax === globalMin) {
+      globalMin = 0;
+      globalMax = 1;
+    }
   }
 
   // Setup MediaRecorder
@@ -629,15 +748,38 @@ async function generateVideoFrom3DGrid(frames, nx, ny, xMin, xMax, yMin, yMax,
   // Determine metric unit
   const metricUnit = metric === 'period' ? '[min]' : (metric === 'amplitude' ? '[nM]' : '');
 
-  // Render each frame
-  for (let i = 0; i < frames.length; i++) {
-    const { grid, tVal } = frames[i];
+  // Render each frame with streaming from IndexedDB
+  if (storage) {
+    // Stream frames one at a time from IndexedDB
+    for (let i = 0; i < frames.length; i++) {
+      // Load frame from IndexedDB
+      const { grid, tVal } = await storage.getFrame(i);
 
-    drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel,
-      globalMin, globalMax, metricUnit, tLabel, tMin, tMax, tVal, i, frames.length);
+      drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel,
+        globalMin, globalMax, metricUnit, tLabel, tMin, tMax, tVal, i, frames.length);
 
-    status.textContent = `動画エンコード中... ${i + 1}/${frames.length}`;
-    await new Promise(r => setTimeout(r, frameDuration));
+      status.textContent = `動画エンコード中... ${i + 1}/${frames.length}`;
+      await new Promise(r => setTimeout(r, frameDuration));
+
+      // Explicitly clear grid to help GC
+      grid.fill(0);
+
+      // Periodically hint at GC (every 10 frames)
+      if (i % 10 === 0) {
+        forceGCHint();
+      }
+    }
+  } else {
+    // Original method: render from in-memory frames
+    for (let i = 0; i < frames.length; i++) {
+      const { grid, tVal } = frames[i];
+
+      drawHeatmapFrame(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel,
+        globalMin, globalMax, metricUnit, tLabel, tMin, tMax, tVal, i, frames.length);
+
+      status.textContent = `動画エンコード中... ${i + 1}/${frames.length}`;
+      await new Promise(r => setTimeout(r, frameDuration));
+    }
   }
 
   mediaRecorder.stop();

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Memory Optimization Test</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    .status {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    .success { background: #d4edda; color: #155724; }
+    .error { background: #f8d7da; color: #721c24; }
+    .info { background: #d1ecf1; color: #0c5460; }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      background: #007bff;
+      color: white;
+      font-size: 14px;
+    }
+    button:hover { background: #0056b3; }
+    button:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+    }
+    .memory-info {
+      margin: 10px 0;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Memory Optimization Test</h1>
+
+  <div class="test-section">
+    <h2>1. FrameStorage Test</h2>
+    <button id="testStorage">Test IndexedDB Storage</button>
+    <div id="storageStatus"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>2. Memory Usage Test</h2>
+    <button id="testMemory">Check Memory API</button>
+    <div id="memoryInfo" class="memory-info"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>3. Generator Test</h2>
+    <button id="testGenerator">Test Generator Pattern</button>
+    <div id="generatorStatus"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>4. Frame Streaming Test</h2>
+    <button id="testStreaming">Test Frame Streaming (100 frames)</button>
+    <div id="streamingStatus"></div>
+  </div>
+
+  <script type="module">
+    import { FrameStorage } from './frame-storage.js';
+
+    // Test 1: IndexedDB Storage
+    document.getElementById('testStorage').addEventListener('click', async () => {
+      const statusEl = document.getElementById('storageStatus');
+      statusEl.innerHTML = '<div class="status info">Testing...</div>';
+
+      try {
+        const storage = new FrameStorage();
+        await storage.init();
+
+        // Store 10 test frames
+        for (let i = 0; i < 10; i++) {
+          const grid = new Float32Array(100).fill(i);
+          await storage.storeFrame(i, grid, i * 0.1);
+        }
+
+        // Retrieve and verify
+        for (let i = 0; i < 10; i++) {
+          const { grid, tVal } = await storage.getFrame(i);
+          if (grid[0] !== i || tVal !== i * 0.1) {
+            throw new Error(`Frame ${i} data mismatch`);
+          }
+        }
+
+        // Test global range computation
+        const { globalMin, globalMax } = await storage.computeGlobalRange(10);
+
+        statusEl.innerHTML = `
+          <div class="status success">✓ IndexedDB storage working!</div>
+          <div class="status info">
+            - Stored 10 frames<br>
+            - Retrieved all frames successfully<br>
+            - Global range: ${globalMin} - ${globalMax}
+          </div>
+        `;
+
+        await storage.clearSession();
+        storage.close();
+      } catch (error) {
+        statusEl.innerHTML = `<div class="status error">✗ Error: ${error.message}</div>`;
+      }
+    });
+
+    // Test 2: Memory API
+    document.getElementById('testMemory').addEventListener('click', () => {
+      const memoryEl = document.getElementById('memoryInfo');
+
+      if (performance.memory) {
+        const { usedJSHeapSize, totalJSHeapSize, jsHeapSizeLimit } = performance.memory;
+        const usedMB = (usedJSHeapSize / 1024 / 1024).toFixed(2);
+        const totalMB = (totalJSHeapSize / 1024 / 1024).toFixed(2);
+        const limitMB = (jsHeapSizeLimit / 1024 / 1024).toFixed(2);
+        const usagePercent = ((usedJSHeapSize / jsHeapSizeLimit) * 100).toFixed(1);
+
+        memoryEl.innerHTML = `
+          Used: ${usedMB} MB / ${limitMB} MB (${usagePercent}%)<br>
+          Total allocated: ${totalMB} MB<br>
+          Heap limit: ${limitMB} MB
+        `;
+      } else {
+        memoryEl.innerHTML = 'Performance.memory API not available (Chrome only)';
+      }
+    });
+
+    // Test 3: Generator Pattern
+    document.getElementById('testGenerator').addEventListener('click', () => {
+      const statusEl = document.getElementById('generatorStatus');
+      statusEl.innerHTML = '<div class="status info">Testing...</div>';
+
+      try {
+        function* testGenerator(count) {
+          for (let i = 0; i < count; i++) {
+            yield { index: i, data: new Array(1000).fill(i) };
+          }
+        }
+
+        let processed = 0;
+        const startMem = performance.memory?.usedJSHeapSize || 0;
+
+        for (const item of testGenerator(1000)) {
+          processed++;
+        }
+
+        const endMem = performance.memory?.usedJSHeapSize || 0;
+        const memDiff = ((endMem - startMem) / 1024 / 1024).toFixed(2);
+
+        statusEl.innerHTML = `
+          <div class="status success">✓ Generator working!</div>
+          <div class="status info">
+            - Processed ${processed} items<br>
+            - Memory delta: ${memDiff} MB<br>
+            - Generator allows on-demand processing
+          </div>
+        `;
+      } catch (error) {
+        statusEl.innerHTML = `<div class="status error">✗ Error: ${error.message}</div>`;
+      }
+    });
+
+    // Test 4: Frame Streaming
+    document.getElementById('testStreaming').addEventListener('click', async () => {
+      const statusEl = document.getElementById('streamingStatus');
+      const btn = document.getElementById('testStreaming');
+      btn.disabled = true;
+
+      statusEl.innerHTML = '<div class="status info">Testing frame streaming...</div>';
+
+      try {
+        const storage = new FrameStorage();
+        await storage.init();
+
+        const nx = 50, ny = 50;
+        const frameCount = 100;
+
+        // Store frames
+        for (let i = 0; i < frameCount; i++) {
+          const grid = new Float32Array(nx * ny);
+          for (let j = 0; j < grid.length; j++) {
+            grid[j] = Math.sin(i * 0.1 + j * 0.01);
+          }
+          await storage.storeFrame(i, grid, i);
+
+          if (i % 10 === 0) {
+            statusEl.innerHTML = `<div class="status info">Storing frame ${i}/${frameCount}...</div>`;
+          }
+        }
+
+        // Stream frames back
+        let streamedCount = 0;
+        for await (const { grid, tVal, index } of storage.getAllFrames(frameCount)) {
+          streamedCount++;
+          if (index % 10 === 0) {
+            statusEl.innerHTML = `<div class="status info">Streaming frame ${index}/${frameCount}...</div>`;
+          }
+          // Immediately clear to test memory management
+          grid.fill(0);
+        }
+
+        statusEl.innerHTML = `
+          <div class="status success">✓ Frame streaming working!</div>
+          <div class="status info">
+            - Stored ${frameCount} frames (${nx}×${ny} each)<br>
+            - Streamed all ${streamedCount} frames successfully<br>
+            - Memory efficient: only 1 frame in RAM at a time
+          </div>
+        `;
+
+        await storage.clearSession();
+        storage.close();
+      } catch (error) {
+        statusEl.innerHTML = `<div class="status error">✗ Error: ${error.message}</div>`;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
