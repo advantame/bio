@@ -58,6 +58,13 @@ async function generateContourData() {
     mod_factor: 1.0
   };
 
+  // デバッグ: SI S5基準値から無次元パラメータを逆算して確認
+  const k1_ref = 0.0020, b_ref = 0.000048;
+  const g_ref = (k1_ref * baseParams.G) / (baseParams.k2 * baseParams.KmP);
+  const beta_ref = (b_ref * baseParams.k2 * baseParams.KmP * baseParams.KmP) / k1_ref;
+  console.log(`📊 Reference dimensionless params from SI S5: g_ref=${g_ref.toFixed(3)}, β_ref=${beta_ref.toFixed(4)}`);
+  console.log(`📏 Your selected range: g=[${gMin}, ${gMax}], β=[${betaMin}, ${betaMax}]`);
+
   const grid = [];
   const totalCells = gSteps * betaSteps;
   let completed = 0;
@@ -81,6 +88,11 @@ async function generateContourData() {
       try {
         // WASM最適化版の周期評価を使用
         const period = runSimulationAndEvaluate(params, 'period', tail);
+
+        // デバッグ: 最初の数ポイントをログ出力
+        if (grid.length < 3) {
+          console.log(`Point ${grid.length + 1}: g=${g.toFixed(3)}, β=${beta.toFixed(3)}, k1=${k1.toExponential(3)}, b=${b.toExponential(3)}, period=${period.toFixed(2)}`);
+        }
 
         grid.push({ g, beta, k1, b, period: Number.isFinite(period) ? period : NaN });
       } catch (err) {
@@ -463,13 +475,17 @@ runBtn.addEventListener('click', async () => {
     if (el.autoLevels.checked) {
       // 自動: データから適切なレベルを選択
       const periods = gridData.grid.map(pt => pt.period).filter(p => Number.isFinite(p));
+      const totalPoints = gridData.grid.length;
+      console.log(`📈 Valid data: ${periods.length}/${totalPoints} points (${(100 * periods.length / totalPoints).toFixed(1)}%)`);
+
       if (periods.length === 0) {
-        status.textContent = 'エラー: 有効なデータがありません。';
+        status.textContent = `エラー: 有効なデータがありません（全${totalPoints}点がNaN）。パラメータ範囲を確認してください。`;
         runBtn.disabled = false;
         return;
       }
       const minPeriod = Math.min(...periods);
       const maxPeriod = Math.max(...periods);
+      console.log(`📊 Period range: [${minPeriod.toFixed(1)}, ${maxPeriod.toFixed(1)}] min`);
       const step = (maxPeriod - minPeriod) / 8;
       levels = [];
       for (let i = 1; i <= 8; i++) {

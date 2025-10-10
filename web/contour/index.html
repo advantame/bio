@@ -66,9 +66,9 @@
             <input id="gSteps" type="number" step="1" value="31">
 
             <label for="betaMin">β 最小値</label>
-            <input id="betaMin" type="number" step="0.01" value="0.3">
+            <input id="betaMin" type="number" step="0.01" value="0.03">
             <label for="betaMax">β 最大値</label>
-            <input id="betaMax" type="number" step="0.01" value="1.5">
+            <input id="betaMax" type="number" step="0.01" value="0.3">
             <label for="betaSteps">β 分割数</label>
             <input id="betaSteps" type="number" step="1" value="25">
           </div>
@@ -93,7 +93,7 @@
             <label for="baseG">基準点 g₀</label>
             <input id="baseG" type="number" step="0.1" value="2.5">
             <label for="baseBeta">基準点 β₀</label>
-            <input id="baseBeta" type="number" step="0.01" value="0.8">
+            <input id="baseBeta" type="number" step="0.01" value="0.15">
           </div>
           <div class="note" style="margin-top:8px; font-size:0.85rem;">
             シナリオは仮想的な修飾効果を示します：<br>
@@ -157,6 +157,10 @@
       <li><strong>g</strong> = k₁ × G / (k₂ × KmP) — 被食者生成効率</li>
       <li><strong>β</strong> = b × k₂ × KmP² / k₁ — 飽和強度</li>
     </ul>
+    <p>
+      <strong>参考値</strong>（SI Table S3, PP₁ 標準条件）：<br>
+      g ≈ 2.85, β ≈ 0.087
+    </p>
     <p>
       アミノ酸修飾による <code>r_assoc</code>, <code>r_poly</code>, <code>r_nick</code> の変化は、以下のように g と β に伝播します：
     </p>
