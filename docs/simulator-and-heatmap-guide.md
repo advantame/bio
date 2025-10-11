@@ -1,6 +1,6 @@
 # DNA Predator-Prey Oscillator — Interactive Simulator & 3D Heatmap Guide
 
-_Last updated: 2025-10-10_
+_Last updated: 2025-10-11_
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -239,11 +239,16 @@ When T-axis is enabled, the heatmap becomes a **video**:
   - Fixed frame rate (CFR guaranteed)
   - Precise video duration (±0 seconds)
   - Universal compatibility (all platforms)
+  - **No special HTTP headers required** (uses single-threaded core)
 - **Cons:**
   - Initial load time (~10 seconds for 25 MB library)
   - Slower encoding (~20% slower than WebM)
-  - Requires single-threaded core (no SharedArrayBuffer needed)
+  - Single-threaded execution (no multi-core speedup)
 - **Best for:** Research publications, presentations, precise timing requirements
+- **Technical details:**
+  - Uses `@ffmpeg/core-st` (single-threaded) instead of `@ffmpeg/core` (multi-threaded)
+  - Avoids SharedArrayBuffer requirement (no COOP/COEP headers needed)
+  - Works with standard HTTP servers (python -m http.server, etc.)
 
 **Video settings:**
 - Duration: configurable (1–60 seconds)
@@ -746,7 +751,24 @@ function forceGCHint() {
 **Solution:**
 - Check codec support: `MediaRecorder.isTypeSupported('video/webm;codecs=vp9')`
 - Try Firefox or Chrome (better VP9 support)
+- Switch to MP4 format (better compatibility)
 - Reduce video duration or grid size
+
+**Problem:** FFmpeg.wasm MP4 export fails with "SharedArrayBuffer is not defined"
+**Solution:**
+- This error should not occur with current implementation (v2)
+- Verify `@ffmpeg/core-st@0.11.1` is being used (not `@ffmpeg/core`)
+- Check browser console for detailed error logs
+- Hard reload page to clear cache (Ctrl+Shift+R / Cmd+Shift+R)
+- See `/web/heatmap/FFMPEG_README.md` for detailed troubleshooting
+
+**Problem:** FFmpeg.wasm fails to load or times out
+**Solution:**
+- Check internet connection (CDN download required on first use)
+- Try alternative CDN: Change `corePath` in `ffmpeg-video.js` line 70
+  - Option A: unpkg (default) - `https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js`
+  - Option B: jsDelivr - `https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js`
+- For offline usage: Use local file version (see `FFMPEG_README.md`)
 
 ---
 
@@ -870,7 +892,11 @@ web/
 │   ├── heatmap.js             # Main logic (2D/3D grid, video)
 │   ├── heatmap-worker.js      # Web Worker for parallel execution
 │   ├── frame-storage.js       # IndexedDB streaming layer
-│   ├── ffmpeg-video.js        # FFmpeg.wasm integration (MP4 export)
+│   ├── ffmpeg-video.js        # FFmpeg.wasm integration (MP4 export, CDN)
+│   ├── ffmpeg-video-local.js  # FFmpeg.wasm local file fallback
+│   ├── package.json           # npm dependencies for local FFmpeg
+│   ├── copy-ffmpeg-core.js    # Post-install script for local setup
+│   ├── FFMPEG_README.md       # FFmpeg.wasm troubleshooting guide
 │   ├── IMPLEMENTATION_SUMMARY.md  # Memory optimization details
 │   └── TESTING_GUIDE.md       # Testing instructions
 ├── core.js                    # WASM interface
@@ -938,7 +964,19 @@ For production (Netlify/GitHub Pages):
 
 ## Changelog
 
-### 2025-10-11
+### 2025-10-11 (v2 - SharedArrayBuffer fix)
+- **Fixed SharedArrayBuffer error** in FFmpeg.wasm MP4 export
+  - Switched from `@ffmpeg/core@0.11.0` to `@ffmpeg/core-st@0.11.1` (single-threaded)
+  - Added `mainName: 'main'` parameter to createFFmpeg configuration
+  - Eliminated SharedArrayBuffer requirement (works with standard HTTP servers)
+  - Added detailed error logging with setLogger
+- **Added local file fallback** for FFmpeg.wasm
+  - Created `ffmpeg-video-local.js` for npm-based installation
+  - Added `package.json`, `copy-ffmpeg-core.js` for offline usage
+  - Created `FFMPEG_README.md` with comprehensive troubleshooting guide
+- **Testing:** Verified with 10-frame and 150-frame MP4 generation
+
+### 2025-10-11 (v1 - Initial MP4 support)
 - **Added MP4 video export** via FFmpeg.wasm (single-threaded @ffmpeg/core-st 0.11.1)
   - High-precision video generation with fixed frame rate (CFR)
   - H.264 codec for universal compatibility
