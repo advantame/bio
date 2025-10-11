@@ -1,10 +1,132 @@
 <!doctype html>
-<meta charset="utf-8">
-<title>PP-oscillation — Redirecting to Simple Flow</title>
-<meta http-equiv="refresh" content="0; url=./simple/">
-<meta name="robots" content="noindex">
-<style>
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 40px; }
-  a { color: #2563eb; }
-</style>
-<p>Redirecting to <a href="./simple/">Simple Flow</a>…</p>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DNA Predator-Prey Oscillator</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      width: 100%;
+    }
+    h1 {
+      color: white;
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      text-align: center;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .subtitle {
+      color: rgba(255,255,255,0.9);
+      font-size: 1.1rem;
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+    .apps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+    .app-card {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      transition: transform 0.2s, box-shadow 0.2s;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+    .app-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+    }
+    .app-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+    .app-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 0.5rem;
+    }
+    .app-desc {
+      color: #64748b;
+      line-height: 1.6;
+      margin-bottom: 1rem;
+    }
+    .app-link {
+      color: #667eea;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .footer {
+      text-align: center;
+      color: rgba(255,255,255,0.8);
+      font-size: 0.9rem;
+    }
+    .footer a {
+      color: white;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(255,255,255,0.5);
+    }
+    .footer a:hover {
+      border-bottom-color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>DNA Predator-Prey Oscillator</h1>
+    <p class="subtitle">Interactive visualization and parameter sweep tools</p>
+
+    <div class="apps">
+      <a href="./simulator/" class="app-card">
+        <div class="app-icon">📊</div>
+        <div class="app-title">Interactive Simulator</div>
+        <p class="app-desc">
+          Real-time visualization of time-series and phase portraits.
+          Adjust parameters with live updates to explore oscillation dynamics.
+        </p>
+        <span class="app-link">Launch Simulator →</span>
+      </a>
+
+      <a href="./heatmap/" class="app-card">
+        <div class="app-icon">🔥</div>
+        <div class="app-title">3D Heatmap</div>
+        <p class="app-desc">
+          Parameter sweep visualization with 2D heatmaps and 3D video generation.
+          Explore oscillation period and amplitude landscapes.
+        </p>
+        <span class="app-link">Launch Heatmap →</span>
+      </a>
+    </div>
+
+    <div class="footer">
+      <p>
+        <a href="https://github.com/your-repo" target="_blank">Documentation</a> ·
+        Based on DNA-based predator-prey oscillator system
+      </p>
+    </div>
+  </div>
+</body>
+</html>
