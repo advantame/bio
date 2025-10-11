@@ -61,9 +61,11 @@ export async function loadFFmpeg(statusCallback) {
       throw new Error('createFFmpeg not found in FFmpeg global');
     }
 
+    // Use single-threaded core to avoid SharedArrayBuffer requirement
+    // Multi-threaded version requires Cross-Origin-Opener-Policy and Cross-Origin-Embedder-Policy headers
     ffmpegInstance = createFFmpeg({
       log: true,
-      corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
+      corePath: 'https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js',
     });
 
     const startTime = performance.now();
