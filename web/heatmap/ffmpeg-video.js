@@ -20,12 +20,13 @@ export async function loadFFmpeg(statusCallback) {
   }
 
   try {
-    // Import FFmpeg.wasm from CDN
-    const { createFFmpeg, fetchFile } = await import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/ffmpeg.min.js');
+    // Import FFmpeg.wasm from CDN (using stable version 0.11.6)
+    // Note: Must use jsDelivr CDN for reliable loading
+    const { createFFmpeg, fetchFile } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js');
 
     ffmpegInstance = createFFmpeg({
       log: true,
-      corePath: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js',
+      corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
       // Limit memory usage (256MB initial, 768MB max)
       // This helps prevent memory crashes on large simulations
     });
@@ -184,7 +185,7 @@ export async function generateMP4WithFFmpeg(
       '-pix_fmt', 'yuv420p',               // Pixel format (compatibility)
       '-crf', '18',                        // Quality (18 = high, 23 = default, 51 = worst)
       '-preset', 'medium',                 // Encoding speed (ultrafast/fast/medium/slow)
-      '-movflags', '+faststart',           // Web optimization (metadata at start)
+      '-movflags', 'faststart',            // Web optimization (metadata at start)
       '-r', fps.toString(),                // Output framerate (CFR guaranteed)
       'output.mp4'
     );
