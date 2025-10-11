@@ -8,6 +8,39 @@ let ffmpegInstance = null;
 let ffmpegLoaded = false;
 
 /**
+ * Load FFmpeg.wasm script dynamically (one-time initialization)
+ * Uses script tag injection since dynamic import doesn't work with UMD builds
+ */
+async function loadFFmpegScript() {
+  return new Promise((resolve, reject) => {
+    // Check if already loaded
+    if (window.FFmpeg) {
+      resolve(window.FFmpeg);
+      return;
+    }
+
+    // Create script tag
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js';
+    script.crossOrigin = 'anonymous';
+
+    script.onload = () => {
+      if (window.FFmpeg && window.FFmpeg.createFFmpeg) {
+        resolve(window.FFmpeg);
+      } else {
+        reject(new Error('FFmpeg loaded but createFFmpeg not found'));
+      }
+    };
+
+    script.onerror = () => {
+      reject(new Error('Failed to load FFmpeg.wasm script'));
+    };
+
+    document.head.appendChild(script);
+  });
+}
+
+/**
  * Load FFmpeg.wasm library (one-time initialization)
  */
 export async function loadFFmpeg(statusCallback) {
@@ -20,22 +53,17 @@ export async function loadFFmpeg(statusCallback) {
   }
 
   try {
-    // Import FFmpeg.wasm from CDN (using stable version 0.11.6)
-    // Note: 0.11.6 uses UMD format, so we need to access the default export or FFmpeg global
-    const ffmpegModule = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js');
-
-    // The module exports FFmpeg as default or as a named export
-    const { createFFmpeg, fetchFile } = ffmpegModule.default || ffmpegModule;
+    // Load FFmpeg.wasm script via script tag (UMD global)
+    const FFmpeg = await loadFFmpegScript();
+    const { createFFmpeg } = FFmpeg;
 
     if (!createFFmpeg) {
-      throw new Error('createFFmpeg is not available in the imported module');
+      throw new Error('createFFmpeg not found in FFmpeg global');
     }
 
     ffmpegInstance = createFFmpeg({
       log: true,
       corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
-      // Limit memory usage (256MB initial, 768MB max)
-      // This helps prevent memory crashes on large simulations
     });
 
     const startTime = performance.now();
