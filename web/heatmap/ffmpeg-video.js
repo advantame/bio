@@ -21,8 +21,15 @@ export async function loadFFmpeg(statusCallback) {
 
   try {
     // Import FFmpeg.wasm from CDN (using stable version 0.11.6)
-    // Note: Must use jsDelivr CDN for reliable loading
-    const { createFFmpeg, fetchFile } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js');
+    // Note: 0.11.6 uses UMD format, so we need to access the default export or FFmpeg global
+    const ffmpegModule = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js');
+
+    // The module exports FFmpeg as default or as a named export
+    const { createFFmpeg, fetchFile } = ffmpegModule.default || ffmpegModule;
+
+    if (!createFFmpeg) {
+      throw new Error('createFFmpeg is not available in the imported module');
+    }
 
     ffmpegInstance = createFFmpeg({
       log: true,
