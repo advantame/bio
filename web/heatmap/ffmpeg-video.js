@@ -63,10 +63,11 @@ export async function loadFFmpeg(statusCallback) {
 
     // Use single-threaded core to avoid SharedArrayBuffer requirement
     // Multi-threaded version requires Cross-Origin-Opener-Policy and Cross-Origin-Embedder-Policy headers
+    // IMPORTANT: Must use @ffmpeg/core-st (single-thread) not @ffmpeg/core (multi-thread)
     ffmpegInstance = createFFmpeg({
       log: true,
       mainName: 'main',
-      corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
+      corePath: 'https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js',
     });
 
     const startTime = performance.now();

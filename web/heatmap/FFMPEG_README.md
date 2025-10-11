@@ -16,8 +16,8 @@
 **現在の設定:**
 ```javascript
 // @ffmpeg/ffmpeg: 0.11.6 (via CDN)
-// @ffmpeg/core: 0.11.0 (via unpkg)
-corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
+// @ffmpeg/core-st: 0.11.1 (single-thread, via unpkg)
+corePath: 'https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js'
 mainName: 'main'
 ```
 
@@ -73,17 +73,17 @@ import { generateMP4WithFFmpeg } from './ffmpeg-video-local.js';
 
 2. **CDN URLを変更**
 
-   `ffmpeg-video.js` 69行目を以下のいずれかに変更:
+   `ffmpeg-video.js` 70行目を以下のいずれかに変更:
 
    ```javascript
-   // Option A: unpkg (現在のデフォルト)
-   corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
-
-   // Option B: jsDelivr
-   corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
-
-   // Option C: シングルスレッド専用版
+   // Option A: unpkg (現在のデフォルト) - シングルスレッド版
    corePath: 'https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js',
+
+   // Option B: jsDelivr - シングルスレッド版
+   corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js',
+
+   // ⚠️ 注意: マルチスレッド版 (@ffmpeg/core) は使用不可
+   // SharedArrayBuffer要件のため、特別なHTTPヘッダーが必要です
    ```
 
 3. **ローカルファイル版を使用**
@@ -183,7 +183,12 @@ await ffmpeg.run(
 
 ## 📝 更新履歴
 
-- **2025-10-11**: 初期実装
+- **2025-10-11 (v2)**: SharedArrayBufferエラー修正
+  - CDN版: @ffmpeg/core → **@ffmpeg/core-st@0.11.1** (シングルスレッド版)
+  - package.json: 依存関係を@ffmpeg/core-stに統一
+  - SharedArrayBuffer要件を完全に回避
+
+- **2025-10-11 (v1)**: 初期実装
   - CDN版: unpkg + @ffmpeg/core@0.11.0 + mainName対応
   - ローカル版: npm経由インストールサポート
   - 詳細ログ・エラーハンドリング追加

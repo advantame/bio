@@ -10,7 +10,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const sourceDir = join(__dirname, 'node_modules', '@ffmpeg', 'core', 'dist');
+const sourceDir = join(__dirname, 'node_modules', '@ffmpeg', 'core-st', 'dist');
 const targetDir = join(__dirname, 'ffmpeg-core');
 
 // Create target directory if it doesn't exist
