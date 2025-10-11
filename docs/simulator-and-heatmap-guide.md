@@ -215,14 +215,66 @@ When T-axis is enabled, the heatmap becomes a **video**:
 1. Compute 3D grid: `nx × ny × nt` simulations
 2. Store frames in IndexedDB (memory-optimized)
 3. Render each frame as 2D heatmap with timeline indicator
-4. Encode to WebM video using MediaRecorder API
+4. Encode to video using selected format (WebM or MP4)
 5. Display in `<video>` player with controls
+
+**Video Format Options:**
+
+##### WebM (Default)
+- **Codec:** VP9
+- **Method:** MediaRecorder API (browser-native)
+- **Pros:**
+  - No additional library loading
+  - Lightweight and fast
+  - Small file size (2-3 MB for 150 frames)
+- **Cons:**
+  - Variable frame rate (25-35 FPS typical)
+  - Video duration may vary slightly (±0.3 seconds)
+- **Best for:** Quick previews, general visualization
+
+##### MP4 (High-Precision)
+- **Codec:** H.264
+- **Method:** FFmpeg.wasm (@ffmpeg/ffmpeg 0.11.6 + @ffmpeg/core-st 0.11.1)
+- **Pros:**
+  - Fixed frame rate (CFR guaranteed)
+  - Precise video duration (±0 seconds)
+  - Universal compatibility (all platforms)
+- **Cons:**
+  - Initial load time (~10 seconds for 25 MB library)
+  - Slower encoding (~20% slower than WebM)
+  - Requires single-threaded core (no SharedArrayBuffer needed)
+- **Best for:** Research publications, presentations, precise timing requirements
 
 **Video settings:**
 - Duration: configurable (1–60 seconds)
-- Frame rate: 30 FPS
-- Codec: VP9 (WebM container)
-- Bitrate: 5 Mbps
+- Frame rate: calculated as `T-axis steps ÷ video duration`
+  - Example: 150 frames ÷ 5 seconds = 30 FPS
+- Quality: High (CRF 18 for MP4, 5 Mbps for WebM)
+
+**FPS Validation (MP4 mode only):**
+
+The interface provides real-time validation to ensure optimal FPS settings:
+
+- **✅ Green:** Integer FPS within 1-60 range (optimal)
+  - Example: 150 frames / 5 sec = 30 FPS
+- **⚠️ Yellow:** Non-integer FPS (frame interpolation may occur)
+  - Suggests nearest integer FPS setting
+  - Example: 143 frames / 5 sec = 28.6 FPS → suggests 150 frames (30 FPS)
+- **⚠️ Red:** FPS exceeds 60 (browser limitation)
+  - Suggests maximum 60 FPS equivalent
+  - Example: 400 frames / 5 sec = 80 FPS → suggests 300 frames (60 FPS)
+- **ℹ️ Blue:** Low FPS (<10) warning
+  - Video may appear choppy
+
+**Recommended FPS settings for MP4:**
+
+| Video Duration | Recommended T-axis Steps | Resulting FPS | Quality |
+|----------------|-------------------------|---------------|---------|
+| 5 seconds | 150 | 30 | ⭐⭐⭐ Excellent |
+| 5 seconds | 100 | 20 | ⭐⭐⭐ Excellent |
+| 5 seconds | 75 | 15 | ⭐⭐ Good |
+| 10 seconds | 300 | 30 | ⭐⭐⭐ Excellent |
+| 2 seconds | 60 | 30 | ⭐⭐⭐ Excellent |
 
 **Timeline indicator:**
 - Horizontal bar at top shows T-axis range
@@ -814,10 +866,11 @@ web/
 │   ├── simulator.js           # Time-series & phase portrait logic
 │   └── styles.css             # Styling
 ├── heatmap/
-│   ├── heatmap.html           # Heatmap page
+│   ├── index.html             # Heatmap page (UI)
 │   ├── heatmap.js             # Main logic (2D/3D grid, video)
 │   ├── heatmap-worker.js      # Web Worker for parallel execution
 │   ├── frame-storage.js       # IndexedDB streaming layer
+│   ├── ffmpeg-video.js        # FFmpeg.wasm integration (MP4 export)
 │   ├── IMPLEMENTATION_SUMMARY.md  # Memory optimization details
 │   └── TESTING_GUIDE.md       # Testing instructions
 ├── core.js                    # WASM interface
@@ -884,6 +937,17 @@ For production (Netlify/GitHub Pages):
 ---
 
 ## Changelog
+
+### 2025-10-11
+- **Added MP4 video export** via FFmpeg.wasm (single-threaded @ffmpeg/core-st 0.11.1)
+  - High-precision video generation with fixed frame rate (CFR)
+  - H.264 codec for universal compatibility
+  - User can select WebM (fast) or MP4 (precise) format
+- **Added FPS validation system** for MP4 mode
+  - Real-time validation with color-coded warnings
+  - Automatic recommendations for optimal integer FPS
+  - Prevents non-integer FPS and >60 FPS issues
+- **File structure:** Added `/web/heatmap/ffmpeg-video.js` module
 
 ### 2025-10-10
 - Initial consolidated documentation created
