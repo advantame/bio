@@ -1373,7 +1373,110 @@ el.enableTimeAxis.addEventListener('change', () => {
   el.tMax.disabled = !enabled;
   el.tSteps.disabled = !enabled;
   el.videoDuration.disabled = !enabled;
+
+  // Validate FPS when enabling/disabling
+  validateVideoSettings();
 });
+
+// Video format change handler - validate FPS
+if (el.videoFormat) {
+  el.videoFormat.addEventListener('change', validateVideoSettings);
+}
+
+// T-axis parameter change handlers - validate FPS
+if (el.tSteps) {
+  el.tSteps.addEventListener('input', validateVideoSettings);
+}
+if (el.videoDuration) {
+  el.videoDuration.addEventListener('input', validateVideoSettings);
+}
+
+// FPS validation and warning system
+function validateVideoSettings() {
+  const fpsWarning = document.getElementById('fpsWarning');
+
+  if (!fpsWarning) return;
+
+  // Only validate when MP4 is selected and T-axis is enabled
+  const isMP4 = el.videoFormat && el.videoFormat.value === 'mp4';
+  const isTAxisEnabled = el.enableTimeAxis && el.enableTimeAxis.checked;
+
+  if (!isMP4 || !isTAxisEnabled) {
+    fpsWarning.style.display = 'none';
+    return;
+  }
+
+  const tSteps = parseInt(el.tSteps.value);
+  const videoDuration = parseFloat(el.videoDuration.value);
+
+  if (!tSteps || !videoDuration || videoDuration <= 0) {
+    fpsWarning.style.display = 'none';
+    return;
+  }
+
+  const fps = tSteps / videoDuration;
+  const isInteger = Number.isInteger(fps);
+  const isInRange = fps > 0 && fps <= 60;
+
+  // Case 1: Perfect (integer FPS, within range)
+  if (isInteger && isInRange) {
+    fpsWarning.style.display = 'block';
+    fpsWarning.style.background = '#d1fae5';
+    fpsWarning.style.border = '1px solid #10b981';
+    fpsWarning.style.color = '#065f46';
+    fpsWarning.innerHTML = `✅ <strong>${fps} FPS</strong> — 最適な設定です（整数FPS、正確な動画が生成されます）`;
+    return;
+  }
+
+  // Case 2: Too high FPS
+  if (fps > 60) {
+    const suggestedSteps = Math.floor(60 * videoDuration);
+    const suggestedFPS = suggestedSteps / videoDuration;
+
+    fpsWarning.style.display = 'block';
+    fpsWarning.style.background = '#fee2e2';
+    fpsWarning.style.border = '1px solid #ef4444';
+    fpsWarning.style.color = '#991b1b';
+    fpsWarning.innerHTML = `⚠️ <strong>${fps.toFixed(1)} FPS</strong> — 60 FPSを超えています<br>` +
+      `<strong>推奨:</strong> T軸分割数を <strong>${suggestedSteps}</strong> に変更 → ${suggestedFPS} FPS`;
+    return;
+  }
+
+  // Case 3: Non-integer FPS (warning + suggestion)
+  if (!isInteger) {
+    // Find closest integer FPS
+    const lowerFPS = Math.floor(fps);
+    const upperFPS = Math.ceil(fps);
+
+    const lowerSteps = lowerFPS * videoDuration;
+    const upperSteps = upperFPS * videoDuration;
+
+    // Choose the closest one
+    const diffLower = Math.abs(fps - lowerFPS);
+    const diffUpper = Math.abs(fps - upperFPS);
+
+    const suggestedFPS = diffLower < diffUpper ? lowerFPS : upperFPS;
+    const suggestedSteps = suggestedFPS * videoDuration;
+
+    fpsWarning.style.display = 'block';
+    fpsWarning.style.background = '#fef3c7';
+    fpsWarning.style.border = '1px solid #f59e0b';
+    fpsWarning.style.color = '#92400e';
+    fpsWarning.innerHTML = `⚠️ <strong>${fps.toFixed(2)} FPS</strong> — 非整数FPS（フレーム補間が発生する可能性）<br>` +
+      `<strong>推奨:</strong> T軸分割数を <strong>${suggestedSteps}</strong> に変更 → ${suggestedFPS} FPS`;
+    return;
+  }
+
+  // Case 4: Low FPS (info, not warning)
+  if (isInteger && fps < 10) {
+    fpsWarning.style.display = 'block';
+    fpsWarning.style.background = '#dbeafe';
+    fpsWarning.style.border = '1px solid #3b82f6';
+    fpsWarning.style.color = '#1e3a8a';
+    fpsWarning.innerHTML = `ℹ️ <strong>${fps} FPS</strong> — 低FPS（カクカクした動画になる可能性があります）`;
+    return;
+  }
+}
 
 // Share button handler
 shareBtn.addEventListener('click', async () => {
@@ -1446,6 +1549,7 @@ initDefaults();
 applyPresetValue(presetSel.value);
 applyQueryParams();
 updateParameterAvailability();
+validateVideoSettings(); // Initial validation
 if (variantSelect) variantSelect.addEventListener('change', renderHeatmapSelection);
 
 function drawHeatmap(grid, nx, ny, xMin, xMax, yMin, yMax, xLabel, yLabel, metric, variantInfo){
