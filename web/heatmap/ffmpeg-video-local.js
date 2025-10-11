@@ -1,6 +1,7 @@
 /**
- * FFmpeg.wasm integration for high-precision MP4 video generation
- * Memory-optimized implementation using IndexedDB streaming
+ * FFmpeg.wasm integration using LOCAL files (alternative to CDN)
+ * Install first: cd web/heatmap && npm install
+ * This will copy core files to ./ffmpeg-core/
  */
 
 // FFmpeg.wasm instance (loaded on-demand)
@@ -8,40 +9,8 @@ let ffmpegInstance = null;
 let ffmpegLoaded = false;
 
 /**
- * Load FFmpeg.wasm script dynamically (one-time initialization)
- * Uses script tag injection since dynamic import doesn't work with UMD builds
- */
-async function loadFFmpegScript() {
-  return new Promise((resolve, reject) => {
-    // Check if already loaded
-    if (window.FFmpeg) {
-      resolve(window.FFmpeg);
-      return;
-    }
-
-    // Create script tag
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js';
-    script.crossOrigin = 'anonymous';
-
-    script.onload = () => {
-      if (window.FFmpeg && window.FFmpeg.createFFmpeg) {
-        resolve(window.FFmpeg);
-      } else {
-        reject(new Error('FFmpeg loaded but createFFmpeg not found'));
-      }
-    };
-
-    script.onerror = () => {
-      reject(new Error('Failed to load FFmpeg.wasm script'));
-    };
-
-    document.head.appendChild(script);
-  });
-}
-
-/**
- * Load FFmpeg.wasm library (one-time initialization)
+ * Load FFmpeg.wasm from local node_modules
+ * Requires: npm install in web/heatmap/
  */
 export async function loadFFmpeg(statusCallback) {
   if (ffmpegLoaded && ffmpegInstance) {
@@ -49,24 +18,22 @@ export async function loadFFmpeg(statusCallback) {
   }
 
   if (statusCallback) {
-    statusCallback('FFmpeg.wasm読み込み中... (初回のみ、25MB)');
+    statusCallback('FFmpeg.wasm読み込み中... (ローカルファイル)');
   }
 
   try {
-    // Load FFmpeg.wasm script via script tag (UMD global)
-    const FFmpeg = await loadFFmpegScript();
-    const { createFFmpeg } = FFmpeg;
+    // Import FFmpeg from local node_modules
+    const { createFFmpeg } = await import('./node_modules/@ffmpeg/ffmpeg/dist/ffmpeg.min.js');
 
     if (!createFFmpeg) {
-      throw new Error('createFFmpeg not found in FFmpeg global');
+      throw new Error('createFFmpeg not found in local FFmpeg module');
     }
 
-    // Use single-threaded core to avoid SharedArrayBuffer requirement
-    // Multi-threaded version requires Cross-Origin-Opener-Policy and Cross-Origin-Embedder-Policy headers
+    // Use local core files (copied by post-install script)
     ffmpegInstance = createFFmpeg({
       log: true,
       mainName: 'main',
-      corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
+      corePath: './ffmpeg-core/ffmpeg-core.js',
     });
 
     const startTime = performance.now();
@@ -79,34 +46,26 @@ export async function loadFFmpeg(statusCallback) {
     await ffmpegInstance.load();
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
 
-    console.log(`✅ FFmpeg.wasm loaded in ${elapsed}s`);
+    console.log(`✅ FFmpeg.wasm loaded from local files in ${elapsed}s`);
 
     ffmpegLoaded = true;
     return ffmpegInstance;
 
   } catch (error) {
-    console.error('❌ FFmpeg.wasm loading failed:', error);
+    console.error('❌ FFmpeg.wasm loading failed (local):', error);
     console.error('Error details:', {
       message: error.message,
       stack: error.stack,
       name: error.name
     });
-    throw new Error(`FFmpeg読み込み失敗: ${error.message}`);
+    console.error('💡 Did you run "npm install" in web/heatmap/?');
+    throw new Error(`FFmpeg読み込み失敗（ローカル）: ${error.message}`);
   }
 }
 
 /**
  * Generate MP4 video from 3D grid using FFmpeg.wasm
- * Memory-optimized: streams frames from IndexedDB one at a time
- *
- * @param {Array} frames - Frame metadata (frameIndex, tVal)
- * @param {FrameStorage} storage - IndexedDB storage instance
- * @param {Object} gridContext - Grid parameters (nx, ny, xMin, xMax, etc.)
- * @param {number} videoDuration - Video length in seconds
- * @param {HTMLCanvasElement} canvas - Canvas for rendering
- * @param {Function} drawFrameCallback - Function to draw single frame
- * @param {Function} statusCallback - Status update callback
- * @returns {Promise<Blob>} - MP4 video blob
+ * (Same implementation as ffmpeg-video.js)
  */
 export async function generateMP4WithFFmpeg(
   frames,
@@ -120,9 +79,8 @@ export async function generateMP4WithFFmpeg(
   const totalFrames = frames.length;
   const fps = totalFrames / videoDuration;
 
-  console.log(`🎬 FFmpeg.wasm video generation: ${totalFrames} frames @ ${fps.toFixed(2)} FPS`);
+  console.log(`🎬 FFmpeg.wasm video generation (LOCAL): ${totalFrames} frames @ ${fps.toFixed(2)} FPS`);
 
-  // Memory usage tracking
   const memoryLog = [];
 
   function logMemory(label) {
@@ -299,7 +257,6 @@ export async function generateMP4WithFFmpeg(
 
 /**
  * Force garbage collection hint
- * (copied from heatmap.js for consistency)
  */
 function forceGCHint() {
   if (typeof performance !== 'undefined' && performance.memory) {

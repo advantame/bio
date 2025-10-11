@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# FFmpeg core files (copied from node_modules)
+ffmpeg-core/
+
+# npm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db

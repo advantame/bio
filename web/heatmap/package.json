@@ -1,0 +1,14 @@
+{
+  "name": "heatmap-ffmpeg",
+  "version": "1.0.0",
+  "description": "FFmpeg.wasm for 3D heatmap video generation",
+  "type": "module",
+  "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.11.6",
+    "@ffmpeg/core": "^0.11.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "postinstall": "node copy-ffmpeg-core.js"
+  }
+}
