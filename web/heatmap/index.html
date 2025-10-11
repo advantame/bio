@@ -140,6 +140,18 @@
           </div>
 
           <div class="param-group" style="margin-top:16px; border-top:1px solid #e5e7eb; padding-top:12px;">
+            <label for="videoFormat"><strong>📹 動画フォーマット</strong></label>
+            <select id="videoFormat">
+              <option value="webm">WebM (VP9) - 標準（軽量）</option>
+              <option value="mp4">MP4 (FFmpeg) - 高精度（30 FPS固定）</option>
+            </select>
+            <div style="font-size:0.9em; color:#666; line-height:1.4; grid-column:1/-1;">
+              <strong>WebM:</strong> 追加ロード不要、軽量だがフレームレートがやや不正確<br>
+              <strong>MP4:</strong> 正確な30 FPS、初回ロードに10秒かかる（25MB）
+            </div>
+          </div>
+
+          <div class="param-group" style="margin-top:16px; border-top:1px solid #e5e7eb; padding-top:12px;">
             <label for="enableTimeAxis"><strong>🎬 第3軸（動画）</strong></label>
             <input id="enableTimeAxis" type="checkbox">
             <label for="tParam">　T軸パラメータ</label>

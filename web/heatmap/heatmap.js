@@ -9,6 +9,7 @@ import {
   getOverlayModificationIds,
 } from "../modifications.js";
 import { FrameStorage } from "./frame-storage.js";
+import { generateMP4WithFFmpeg } from "./ffmpeg-video.js";
 
 // Memory management utilities
 function forceGCHint() {
@@ -32,7 +33,7 @@ const ids = [
   'yParam','yMin','yMax','ySteps',
   'metric','t_end','dt','tail','useFFT',
   'pol','rec','G','k1','k2','kN','kP','b','KmP','N0','P0',
-  'enableTimeAxis','tParam','tMin','tMax','tSteps','videoDuration'
+  'enableTimeAxis','tParam','tMin','tMax','tSteps','videoDuration','videoFormat'
 ];
 const el = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
 const presetSel = document.getElementById('preset');
@@ -704,6 +705,25 @@ async function processChunk(cells, numWorkers, tempFrames, nx, metric, tailPct, 
 async function generateVideoFrom3DGrid(frames, nx, ny, xMin, xMax, yMin, yMax,
   xLabel, yLabel, tLabel, tMin, tMax, metric, videoDuration, storage = null) {
 
+  // Check video format selection
+  const videoFormat = el.videoFormat ? el.videoFormat.value : 'webm';
+  const useFFmpeg = videoFormat === 'mp4';
+
+  if (useFFmpeg) {
+    // Use FFmpeg.wasm for high-precision MP4 generation
+    return await generateVideoWithFFmpeg(frames, nx, ny, xMin, xMax, yMin, yMax,
+      xLabel, yLabel, tLabel, tMin, tMax, metric, videoDuration, storage);
+  }
+
+  // Otherwise, use MediaRecorder for WebM (original implementation)
+  return await generateVideoWithMediaRecorder(frames, nx, ny, xMin, xMax, yMin, yMax,
+    xLabel, yLabel, tLabel, tMin, tMax, metric, videoDuration, storage);
+}
+
+// WebM video generation using MediaRecorder (original implementation)
+async function generateVideoWithMediaRecorder(frames, nx, ny, xMin, xMax, yMin, yMax,
+  xLabel, yLabel, tLabel, tMin, tMax, metric, videoDuration, storage = null) {
+
   let globalMin, globalMax;
 
   if (storage) {
@@ -794,6 +814,49 @@ async function generateVideoFrom3DGrid(frames, nx, ny, xMin, xMax, yMin, yMax,
   }
 
   mediaRecorder.stop();
+}
+
+// FFmpeg.wasm-based video generation (high precision MP4)
+async function generateVideoWithFFmpeg(frames, nx, ny, xMin, xMax, yMin, yMax,
+  xLabel, yLabel, tLabel, tMin, tMax, metric, videoDuration, storage = null) {
+
+  const metricUnit = metric === 'period' ? '[min]' : (metric === 'amplitude' ? '[nM]' : '');
+
+  const gridContext = {
+    nx, ny,
+    xMin, xMax,
+    yMin, yMax,
+    xLabel, yLabel,
+    tLabel, tMin, tMax,
+    metricUnit
+  };
+
+  try {
+    // Generate MP4 using FFmpeg.wasm with IndexedDB streaming
+    const videoBlob = await generateMP4WithFFmpeg(
+      frames,
+      storage,
+      gridContext,
+      videoDuration,
+      cv,
+      drawHeatmapFrame,
+      (msg) => { status.textContent = msg; }
+    );
+
+    // Display video
+    const url = URL.createObjectURL(videoBlob);
+    videoPlayer.src = url;
+    videoPlayer.style.display = 'block';
+    cv.style.display = 'none';
+
+    const fileSizeMB = (videoBlob.size / 1024 / 1024).toFixed(2);
+    status.textContent = `✅ MP4生成完了 (${frames.length} フレーム, ${videoDuration}秒, ${fileSizeMB} MB)`;
+
+  } catch (error) {
+    status.textContent = `❌ 動画生成エラー: ${error.message}`;
+    console.error('Video generation failed:', error);
+    throw error;
+  }
 }
 
 // Draw a single heatmap frame (for animation)
