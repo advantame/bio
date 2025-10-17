@@ -8,6 +8,7 @@ const ctxPH = cvPH.getContext('2d', { alpha: false });
 const status = byId('status');
 const busy = byId('busy');
 const resetBtn = byId('resetBtn');
+const compareBtn = byId('compareBtn');
 const legendEl = byId('legend');
 const modSummaryEl = byId('modSummary');
 
@@ -39,6 +40,11 @@ const B_BASE = 0.000048;
 
 const BASELINE_COLORS = { prey: '#f97316', pred: '#2c7a7b', lineDash: [] };
 const ACTIVE_COLORS = { prey: '#2563eb', pred: '#0ea5e9', lineDash: [] };
+const SNAPSHOT_PALETTE = [
+  { prey: '#9333ea', pred: '#c084fc', lineDash: [6, 4] },
+  { prey: '#0ea5e9', pred: '#06b6d4', lineDash: [6, 4] },
+  { prey: '#f43f5e', pred: '#fb7185', lineDash: [4, 4] },
+];
 const OVERLAY_PALETTE = [
   { prey: '#9333ea', pred: '#c084fc', lineDash: [6, 4] },
   { prey: '#22c55e', pred: '#0f766e', lineDash: [6, 4] },
@@ -46,9 +52,50 @@ const OVERLAY_PALETTE = [
   { prey: '#14b8a6', pred: '#0ea5e9', lineDash: [4, 4] },
 ];
 
+// Snapshot storage (max 3)
+let snapshots = [];
+
 
 resetBtn.addEventListener('click', () => {
   for (const k of Object.keys(DEFAULTS)) setVal(k, DEFAULTS[k]);
+  requestUpdate();
+});
+
+compareBtn.addEventListener('click', () => {
+  // Capture current parameters and simulation results
+  const baseParams = getVals();
+  const variants = buildSimulationVariants(baseParams);
+
+  // Run simulation for current parameters
+  const snapshotData = [];
+  for (const variant of variants) {
+    const { N: nSeries, P: pSeries } = runSimulationPhysical(variant.params);
+    const rawN = Array.from(nSeries);
+    const rawP = Array.from(pSeries);
+    const prey = rawN.map((v) => 400 - v);
+    snapshotData.push({
+      id: variant.id,
+      label: variant.label,
+      type: variant.type,
+      N: rawN,
+      P: rawP,
+      prey,
+      derived: variant.derived,
+    });
+  }
+
+  // Store snapshot (max 3)
+  snapshots.push({
+    params: { ...baseParams },
+    data: snapshotData,
+    timestamp: Date.now()
+  });
+
+  // Keep only the last 3 snapshots
+  if (snapshots.length > 3) {
+    snapshots.shift(); // Remove the oldest
+  }
+
   requestUpdate();
 });
 
@@ -121,7 +168,13 @@ function drawTimeSeries(seriesList, dt){
   ctxTS.strokeRect(L, T, W - L - R, H - T - B);
 
   for (const series of seriesList){
-    ctxTS.lineWidth = series.type === 'baseline' ? 2.4 : 1.9;
+    if (series.type === 'baseline') {
+      ctxTS.lineWidth = 2.4;
+    } else if (series.type === 'snapshot') {
+      ctxTS.lineWidth = 1.6;
+    } else {
+      ctxTS.lineWidth = 1.9;
+    }
     ctxTS.setLineDash(series.lineDash || []);
     ctxTS.beginPath();
     const prey = series.prey;
@@ -201,7 +254,13 @@ function drawPhase(seriesList){
   ctxPH.strokeRect(L, T, W - L - R, H - T - B);
 
   for (const series of seriesList){
-    ctxPH.lineWidth = series.type === 'baseline' ? 2.0 : 1.7;
+    if (series.type === 'baseline') {
+      ctxPH.lineWidth = 2.0;
+    } else if (series.type === 'snapshot') {
+      ctxPH.lineWidth = 1.4;
+    } else {
+      ctxPH.lineWidth = 1.7;
+    }
     ctxPH.setLineDash(series.lineDash || []);
     ctxPH.beginPath();
     const prey = series.prey;
@@ -277,7 +336,11 @@ function renderLegend(seriesList){
     swatches.appendChild(preySw);
     swatches.appendChild(predSw);
     const label = document.createElement('span');
-    const typeLabel = series.type === 'baseline' ? 'Baseline' : (series.type === 'active' ? 'Active' : 'Overlay');
+    let typeLabel;
+    if (series.type === 'baseline') typeLabel = 'Current';
+    else if (series.type === 'active') typeLabel = 'Active';
+    else if (series.type === 'snapshot') typeLabel = 'Snapshot';
+    else typeLabel = 'Overlay';
     label.innerHTML = `<strong>${series.label}</strong> · ${typeLabel}`;
     row.appendChild(swatches);
     row.appendChild(label);
@@ -342,6 +405,30 @@ async function animate(){
     const variants = buildSimulationVariants(baseParams);
 
     const seriesList = [];
+
+    // Add snapshots first (so they appear behind the current graph)
+    for (let i = 0; i < snapshots.length; i++) {
+      const snapshot = snapshots[i];
+      const palette = SNAPSHOT_PALETTE[i % SNAPSHOT_PALETTE.length];
+
+      // Add only the first data series from snapshot (baseline)
+      const snapshotSeries = snapshot.data[0]; // baseline series
+      if (snapshotSeries) {
+        seriesList.push({
+          id: `snapshot_${i}_${snapshotSeries.id}`,
+          label: `Snapshot ${i + 1}`,
+          type: 'snapshot',
+          colors: { prey: palette.prey, pred: palette.pred },
+          lineDash: palette.lineDash,
+          N: snapshotSeries.N,
+          P: snapshotSeries.P,
+          prey: snapshotSeries.prey,
+          derived: snapshotSeries.derived,
+        });
+      }
+    }
+
+    // Add current simulation results
     let overlayIndex = 0;
     for (const variant of variants){
       const style = styleForVariant(variant, overlayIndex);
